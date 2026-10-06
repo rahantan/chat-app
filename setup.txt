@@ -1,0 +1,12 @@
+go fiber = go get github.com/gofiber/fiber/v2
+gorm     = go get gorm.io/gorm
+bycript  = go get golang.org/x/crypto/bcrypt
+goenv    = go get github.com/joho/godotenv
+
+
+gorm mysql drvier = go get gorm.io/driver/mysql
+
+jwt = go get github.com/gofiber/fiber/v2
+
+validator = go get github.com/go-playground/validator/v10
+

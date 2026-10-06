@@ -1,0 +1,97 @@
+| Kebutuhan                  | Handler                | Service                | Repository                           |
+| -------------------------- | ---------------------- | ---------------------- | ------------------------------------ |
+| Ambil order berdasarkan ID | `GetOrder()`           | `GetOrderByID()`       | `FindByID()`                         |
+| Ambil detail order         | `GetOrderDetail()`     | `GetOrderDetail()`     | `FindDetailByID()`                   |
+| Ambil daftar order         | `ListOrders()`         | `ListOrders()`         | `FindAll()`                          |
+| Ambil order milik user     | `GetMyOrders()`        | `ListOrdersByUser()`   | `FindByUserID()`                     |
+| Cari order                 | `SearchOrders()`       | `SearchOrders()`       | `Search()` / `FindByKeyword()`       |
+| Cek order ada/tidak        | —                      | `CheckOrderExists()`   | `ExistsByID()`                       |
+| Buat order                 | `CreateOrder()`        | `CreateOrder()`        | `Create()`                           |
+| Update order               | `UpdateOrder()`        | `UpdateOrder()`        | `Update()`                           |
+| Hapus order                | `DeleteOrder()`        | `DeleteOrder()`        | `Delete()`                           |
+| Checkout                   | `Checkout()`           | `Checkout()`           | `Create()` / `CreateWithTx()`        |
+| Batalkan order             | `CancelOrder()`        | `CancelOrder()`        | `UpdateStatus()`                     |
+| Bayar order                | `PayOrder()`           | `PayOrder()`           | `UpdatePaymentStatus()`              |
+| Konfirmasi order           | `ConfirmOrder()`       | `ConfirmOrder()`       | `UpdateStatus()`                     |
+| Ambil cart                 | `GetCart()`            | `GetCart()`            | `FindByUserID()`                     |
+| Tambah item cart           | `AddToCart()`          | `AddToCart()`          | `Create()` / `FindItemByProductID()` |
+| Update quantity cart       | `UpdateCartQuantity()` | `UpdateCartQuantity()` | `UpdateQuantity()`                   |
+| Hapus item cart            | `RemoveFromCart()`     | `RemoveFromCart()`     | `Delete()`                           |
+| Ambil produk               | `GetProduct()`         | `GetProductByID()`     | `FindByID()`                         |
+| Daftar produk              | `ListProducts()`       | `ListProducts()`       | `FindAll()`                          |
+| Cari produk                | `SearchProducts()`     | `SearchProducts()`     | `FindByKeyword()`                    |
+| Buat produk                | `CreateProduct()`      | `CreateProduct()`      | `Create()`                           |
+| Update produk              | `UpdateProduct()`      | `UpdateProduct()`      | `Update()`                           |
+| Hapus produk               | `DeleteProduct()`      | `DeleteProduct()`      | `Delete()`                           |
+| Cek stok                   | —                      | `CheckStock()`         | `FindStockByProductID()`             |
+| Kurangi stok               | —                      | `ReduceStock()`        | `UpdateStock()`                      |
+| Register                   | `Register()`           | `Register()`           | `Create()`                           |
+| Login                      | `Login()`              | `Login()`              | `FindByEmail()`                      |
+| Ambil user                 | `GetUser()`            | `GetUserByID()`        | `FindByID()`                         |
+| Update profile             | `UpdateProfile()`      | `UpdateProfile()`      | `Update()`                           |
+| Upload gambar produk       | `UploadProductImage()` | `UploadProductImage()` | —*                                   |
+
+* Upload file biasanya lebih cocok masuk storage/integration, bukan repository database.
+
+
+
+
+## Pola yang perlu kamu ingat
+Handler
+↓
+"Request ini melakukan apa?"
+↓
+Get / List / Create / Update / Delete
+Checkout / Cancel / Pay / Login / Register
+
+
+Service
+↓
+"Use case/bisnisnya melakukan apa?"
+↓
+Get / List / Create / Update / Delete
+Checkout / Cancel / Pay / CheckStock / ReduceStock
+
+
+Repository
+↓
+"Data apa yang perlu dicari/diubah?"
+↓
+FindByID / FindByUserID / FindDetailByID
+FindAll / ExistsByID
+Create / Update / Delete
+
+
+## Contoh paling jelas:
+GET /orders/:id
+
+Handler
+GetOrder()
+    ↓
+
+Service
+GetOrderByID()
+    ↓
+
+Repository
+FindByID()
+
+
+## Sedangkan:
+POST /orders/checkout
+
+Handler
+Checkout()
+
+    ↓
+
+Service
+Checkout()
+
+    ↓
+    ├── cartRepo.FindByUserID()
+    ├── productRepo.FindByIDs()
+    ├── productRepo.UpdateStock()
+    ├── orderRepo.Create()
+    └── payment.CreatePayment()
+
