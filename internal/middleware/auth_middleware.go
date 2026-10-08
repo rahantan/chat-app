@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"errors"
-	"fmt"
 	"simple-auth/config"
 	"simple-auth/internal/service"
 
@@ -26,7 +25,6 @@ func NewMiddleWare(auth service.AuthService, jwtConf *config.Jwt) MiddleWare {
 }
 func (m *MiddleWareImpl) AuthMiddleware(c *fiber.Ctx) error {
 	tokenStr := c.Cookies("access_token")
-	fmt.Println("token:", tokenStr)
 	if tokenStr == "" {
 		return errors.New("token is required")
 	}

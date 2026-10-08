@@ -56,16 +56,3 @@ func (rToken *refreshTokenImpl) UpSertByUserID(ctx context.Context, token *model
 
 	return nil
 }
-
-/*
-login
-buat token insert by user id
-
-refresh token
-cek token hash nya ada ga
-update token by user id
-
-log out
-delete token yang sudah ada
-
-*/
