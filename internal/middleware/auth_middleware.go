@@ -2,25 +2,41 @@ package middleware
 
 import (
 	"errors"
-	"simple-auth/internal/pkg"
+	"fmt"
+	"simple-auth/config"
+	"simple-auth/internal/service"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-func AuthMiddleware(secretKey string) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		tokenStr := c.Cookies("access_token")
-		if tokenStr == "" {
-			return errors.New("token is required")
-		}
+type MiddleWare interface {
+	AuthMiddleware(c *fiber.Ctx) error
+}
 
-		userResponse, err := pkg.ValidationJWTToken(secretKey, tokenStr)
-		if err != nil {
-			return err
-		}
+type MiddleWareImpl struct {
+	service.AuthService
+	*config.Jwt
+}
 
-		c.Locals("user", *userResponse)
-
-		return c.Next()
+func NewMiddleWare(auth service.AuthService, jwtConf *config.Jwt) MiddleWare {
+	return &MiddleWareImpl{
+		AuthService: auth,
+		Jwt:         jwtConf,
 	}
+}
+func (m *MiddleWareImpl) AuthMiddleware(c *fiber.Ctx) error {
+	tokenStr := c.Cookies("access_token")
+	fmt.Println("token:", tokenStr)
+	if tokenStr == "" {
+		return errors.New("token is required")
+	}
+
+	userResponse, err := m.AuthService.VerifyToken(m.Jwt.ACCESS_TOKEN_SECRET_KEY, tokenStr)
+	if err != nil {
+		return err
+	}
+
+	c.Locals("user", *userResponse)
+
+	return c.Next()
 }

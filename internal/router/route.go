@@ -11,6 +11,7 @@ import (
 type Route struct {
 	httpHandler.AuthHandler
 	httpHandler.UserHandler
+	middleware.MiddleWare
 	config.Jwt
 }
 
@@ -25,7 +26,7 @@ func Router(app *fiber.App, route *Route) {
 	public.Post("/refresh-token", route.AuthHandler.RefreshToken)
 
 	// SECURE
-	protect := api.Group("/protect", middleware.AuthMiddleware(route.Jwt.ACCESS_TOKEN_SECRET_KEY))
+	protect := api.Group("/protect", route.MiddleWare.AuthMiddleware)
 
 	protect.Post("/log-out", route.AuthHandler.LogOut)
 	protect.Get("/me", route.UserHandler.GetUser)

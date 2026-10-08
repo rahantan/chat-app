@@ -3,7 +3,6 @@ package http
 import (
 	"context"
 	"errors"
-	"simple-auth/config"
 	"simple-auth/internal/dto"
 	"simple-auth/internal/pkg"
 	"simple-auth/internal/service"
@@ -20,13 +19,11 @@ type AuthHandler interface {
 }
 type authHandlerImpl struct {
 	service.AuthService
-	*config.Jwt
 }
 
-func NewAuthHandler(authService service.AuthService, jwtConf *config.Jwt) AuthHandler {
+func NewAuthHandler(authService service.AuthService) AuthHandler {
 	return &authHandlerImpl{
 		AuthService: authService,
-		Jwt:         jwtConf,
 	}
 }
 
@@ -51,10 +48,18 @@ func (authHandler *authHandlerImpl) LogOut(c *fiber.Ctx) error {
 	c.Cookie(&fiber.Cookie{
 		Name:     "refresh_token",
 		Value:    "",
-		Path:     "/api/public/refresh-token",
+		Path:     pkg.RefreshTokenCookiePath,
 		Expires:  time.Now().Add(-time.Hour),
-		HTTPOnly: true,
-		Secure:   true,
+		HTTPOnly: false,
+		Secure:   false,
+	})
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Path:     pkg.AccessTokenCookiePath,
+		Expires:  time.Now().Add(-time.Hour),
+		HTTPOnly: false,
+		Secure:   false,
 	})
 	return c.SendStatus(fiber.StatusOK)
 }
@@ -68,62 +73,55 @@ func (authHandler *authHandlerImpl) Login(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(c.UserContext(), 5*time.Second)
 	defer cancel()
 
-	user, err := authHandler.AuthService.Login(ctx, &reqBody)
+	result, err := authHandler.AuthService.Login(ctx, &reqBody)
 	if err != nil {
 		return err
 	}
 
-	refreshToken, err := pkg.CreateJWTToken(authHandler.Jwt.REFRESH_TOKEN_SECRET_KEY, pkg.RefreshTokenExpireTime, user)
-	if err != nil {
-		return err
-	}
-
-	c.Cookie(&fiber.Cookie{
-		Name:     "refresh_token",
-		Value:    refreshToken,
-		Path:     "/api/public/refresh-token",
-		Secure:   true,
-		HTTPOnly: true,
-		Expires:  time.Now().Add(pkg.RefreshTokenExpireTime),
-	})
-
-	accessToken, err := pkg.CreateJWTToken(authHandler.Jwt.ACCESS_TOKEN_SECRET_KEY, pkg.AccessTokenExpireTime, user)
-	if err != nil {
-		return err
-	}
+	authHandler.setAuthCookies(c, result)
 
 	return c.Status(fiber.StatusOK).JSON(dto.StandardResponse{
 		Status:  true,
 		Message: "SUCCESS LOGIN",
 		Data: map[string]any{
-			"access_token": accessToken,
-			"user":         user,
+			"user": result.UserResponse,
 		}},
 	)
 }
 
 func (authHandler *authHandlerImpl) RefreshToken(c *fiber.Ctx) error {
 	tokenStr := c.Cookies("refresh_token")
-
 	if tokenStr == "" {
 		return errors.New("token is required")
 	}
 
-	user, err := pkg.ValidationJWTToken(authHandler.Jwt.REFRESH_TOKEN_SECRET_KEY, tokenStr)
+	result, err := authHandler.AuthService.RefreshToken(c.UserContext(), tokenStr)
 	if err != nil {
 		return err
 	}
 
-	token, err := pkg.CreateJWTToken(authHandler.Jwt.ACCESS_TOKEN_SECRET_KEY, pkg.AccessTokenExpireTime, user)
-	if err != nil {
-		return err
-	}
+	authHandler.setAuthCookies(c, result)
 
-	return c.Status(fiber.StatusOK).JSON(dto.StandardResponse{
-		Status:  true,
-		Message: "SUCCESS REFRESH TOKEN",
-		Data: map[string]string{
-			"access_token": token,
-		},
+	return c.SendStatus(fiber.StatusOK)
+}
+
+func (authHandler *authHandlerImpl) setAuthCookies(c *fiber.Ctx, auth *dto.AuthResponse) {
+	c.Cookie(&fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    auth.RefreshToken,
+		Path:     pkg.RefreshTokenCookiePath,
+		Secure:   false,
+		HTTPOnly: true,
+		Expires:  time.Now().Add(pkg.RefreshTokenExpireTime),
 	})
+
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    auth.AccessToken,
+		Path:     pkg.AccessTokenCookiePath,
+		Secure:   false,
+		HTTPOnly: true,
+		Expires:  time.Now().Add(pkg.AccessTokenExpireTime),
+	})
+
 }

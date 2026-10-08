@@ -5,6 +5,7 @@ import (
 	"log"
 	"simple-auth/config"
 	httpHandler "simple-auth/internal/handler/http"
+	"simple-auth/internal/middleware"
 	mysqlRepo "simple-auth/internal/repository/mysql"
 	"simple-auth/internal/router"
 	"simple-auth/internal/service"
@@ -18,15 +19,19 @@ func main() {
 	dbConn := conf.GetConnectionDB()
 
 	userRepo := mysqlRepo.NewUserRepository(dbConn)
-	authService := service.NewAuthService(userRepo)
-	authHandler := httpHandler.NewAuthHandler(authService, &conf.Jwt)
+	refreshTokenRepo := mysqlRepo.NewRefreshTokenRepository(dbConn)
+	authService := service.NewAuthService(userRepo, refreshTokenRepo, &conf.Jwt)
+	authHandler := httpHandler.NewAuthHandler(authService)
 
 	userHandler := httpHandler.NewUserHandlerImpl()
+
+	middleWare := middleware.NewMiddleWare(authService, &conf.Jwt)
 
 	route := router.Route{
 		AuthHandler: authHandler,
 		UserHandler: userHandler,
 		Jwt:         conf.Jwt,
+		MiddleWare:  middleWare,
 	}
 
 	app := fiber.New(fiber.Config{

@@ -11,3 +11,9 @@ type LoginRequest struct {
 	Email string `json:"email" validate:"required,email"`
 	Pass  string `json:"password" validate:"required,"`
 }
+
+type AuthResponse struct {
+	RefreshToken string
+	AccessToken  string
+	UserResponse
+}
