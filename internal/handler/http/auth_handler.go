@@ -2,12 +2,12 @@ package http
 
 import (
 	"context"
-	"errors"
 	"simple-auth/internal/dto"
 	"simple-auth/internal/pkg"
 	"simple-auth/internal/service"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -19,11 +19,13 @@ type AuthHandler interface {
 }
 type authHandlerImpl struct {
 	service.AuthService
+	*validator.Validate
 }
 
-func NewAuthHandler(authService service.AuthService) AuthHandler {
+func NewAuthHandler(authService service.AuthService, v *validator.Validate) AuthHandler {
 	return &authHandlerImpl{
 		AuthService: authService,
+		Validate:    v,
 	}
 }
 
@@ -31,6 +33,10 @@ func (authHandler *authHandlerImpl) Register(c *fiber.Ctx) error {
 	var reqBody dto.RegisterRequest
 	if err := c.BodyParser(&reqBody); err != nil {
 		return err
+	}
+
+	if err := authHandler.Validate.Struct(&reqBody); err != nil {
+		pkg.ValidationErr(err)
 	}
 
 	ctx, cancel := context.WithTimeout(c.UserContext(), 5*time.Second)
@@ -70,6 +76,10 @@ func (authHandler *authHandlerImpl) Login(c *fiber.Ctx) error {
 		return err
 	}
 
+	if err := authHandler.Validate.Struct(&reqBody); err != nil {
+		pkg.ValidationErr(err)
+	}
+
 	ctx, cancel := context.WithTimeout(c.UserContext(), 5*time.Second)
 	defer cancel()
 
@@ -92,7 +102,7 @@ func (authHandler *authHandlerImpl) Login(c *fiber.Ctx) error {
 func (authHandler *authHandlerImpl) RefreshToken(c *fiber.Ctx) error {
 	tokenStr := c.Cookies("refresh_token")
 	if tokenStr == "" {
-		return errors.New("token is required")
+		return pkg.ErrTokenRequired
 	}
 
 	result, err := authHandler.AuthService.RefreshToken(c.UserContext(), tokenStr)

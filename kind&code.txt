@@ -1,0 +1,93 @@
+type ErrorKind string
+
+const (
+    KindValidation     ErrorKind = "validation"
+    KindAuthentication ErrorKind = "authentication"
+    KindAuthorization  ErrorKind = "authorization"
+    KindAuthorization  ErrorKind = "authorization"
+    KindNotFound       ErrorKind = "not_found"
+    KindConflict       ErrorKind = "conflict"
+    KindBusiness       ErrorKind = "business"
+    KindInternal       ErrorKind = "internal"
+)
+Lalu code:
+
+type ErrorCode string
+
+const (
+    // Validation
+    CodeInvalidField       ErrorCode = "INVALID_FIELD"
+    CodeRequiredField      ErrorCode = "REQUIRED_FIELD"
+    CodeInvalidFormat      ErrorCode = "INVALID_FORMAT"
+    CodeInvalidEmail       ErrorCode = "INVALID_EMAIL"
+    CodeInvalidPassword    ErrorCode = "INVALID_PASSWORD"
+    CodeValueTooShort      ErrorCode = "VALUE_TOO_SHORT"
+    CodeValueTooLong       ErrorCode = "VALUE_TOO_LONG"
+
+    // Authentication
+    CodeInvalidCredentials ErrorCode = "INVALID_CREDENTIALS"
+    CodeTokenExpired      ErrorCode = "TOKEN_EXPIRED"
+    CodeTokenInvalid      ErrorCode = "TOKEN_INVALID"
+    CodeUnauthenticated   ErrorCode = "UNAUTHENTICATED"
+
+    // Authorization
+    CodeForbidden         ErrorCode = "FORBIDDEN"
+    CodeInsufficientRole  ErrorCode = "INSUFFICIENT_ROLE"
+    CodeInsufficientPermission ErrorCode = "INSUFFICIENT_PERMISSION"
+
+    // Not Found
+    CodeUserNotFound      ErrorCode = "USER_NOT_FOUND"
+    CodeProductNotFound   ErrorCode = "PRODUCT_NOT_FOUND"
+    CodeOrderNotFound     ErrorCode = "ORDER_NOT_FOUND"
+    CodeResourceNotFound  ErrorCode = "RESOURCE_NOT_FOUND"
+
+    // Conflict
+    CodeEmailAlreadyExists ErrorCode = "EMAIL_ALREADY_EXISTS"
+    CodeUsernameTaken      ErrorCode = "USERNAME_TAKEN"
+    CodeResourceExists     ErrorCode = "RESOURCE_ALREADY_EXISTS"
+    CodeStateConflict      ErrorCode = "STATE_CONFLICT"
+
+    // Business
+    CodeOperationNotAllowed ErrorCode = "OPERATION_NOT_ALLOWED"
+    CodeInsufficientBalance ErrorCode = "INSUFFICIENT_BALANCE"
+    CodeInvalidState        ErrorCode = "INVALID_STATE"
+
+    // Internal
+    CodeInternalError       ErrorCode = "INTERNAL_ERROR"
+    CodeDatabaseError       ErrorCode = "DATABASE_ERROR"
+    CodeExternalServiceError ErrorCode = "EXTERNAL_SERVICE_ERROR"
+)
+Tapi jangan langsung bikin sebanyak itu kalau belum ada kebutuhannya. Lebih baik mulai dari yang memang dipakai.
+
+Cara membayangkannya
+Misalnya:
+
+Kind: validation
+    ├── INVALID_EMAIL
+    ├── REQUIRED_FIELD
+    ├── INVALID_FORMAT
+    └── VALUE_TOO_SHORT
+
+Kind: authentication
+    ├── INVALID_CREDENTIALS
+    ├── TOKEN_EXPIRED
+    └── TOKEN_INVALID
+
+Kind: authorization
+    ├── FORBIDDEN
+    └── INSUFFICIENT_PERMISSION
+
+Kind: not_found
+    ├── USER_NOT_FOUND
+    ├── PRODUCT_NOT_FOUND
+    └── ORDER_NOT_FOUND
+
+Kind: conflict
+    ├── EMAIL_ALREADY_EXISTS
+    ├── USERNAME_TAKEN
+    └── STATE_CONFLICT
+
+Kind: business
+    ├── OPERATION_NOT_ALLOWED
+    ├── INSUFFICIENT_BALANCE
+    └── INVALID_STATE

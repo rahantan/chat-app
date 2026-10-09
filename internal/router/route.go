@@ -22,7 +22,6 @@ func Router(app *fiber.App, route *Route) {
 	public := api.Group("/public")
 	public.Post("/login", route.AuthHandler.Login)
 	public.Post("/register", route.AuthHandler.Register)
-
 	public.Post("/refresh-token", route.AuthHandler.RefreshToken)
 
 	// SECURE

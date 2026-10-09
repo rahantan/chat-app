@@ -2,7 +2,6 @@ package mysql
 
 import (
 	"context"
-	"errors"
 	"simple-auth/internal/model"
 
 	"gorm.io/gorm"
@@ -10,7 +9,7 @@ import (
 )
 
 type RefreshTokenRepository interface {
-	FindByTokenHash(ctx context.Context, tokenHash string) (*model.RefreshToken, error)
+	ExsistByTokenHash(ctx context.Context, tokenHash string) (bool, error)
 	DeleteByUserID(ctx context.Context, userID int64) error
 	UpSertByUserID(ctx context.Context, token *model.RefreshToken) error
 }
@@ -25,16 +24,12 @@ func NewRefreshTokenRepository(db *gorm.DB) RefreshTokenRepository {
 	}
 }
 
-func (rToken *refreshTokenImpl) FindByTokenHash(ctx context.Context, tokenHash string) (*model.RefreshToken, error) {
-	var tokenResult model.RefreshToken
-	if err := rToken.DB.WithContext(ctx).Take(&tokenResult, "token_hash = ?", tokenHash).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("invalid token")
-		}
-		return nil, err
-	}
-	return &tokenResult, nil
+func (rToken *refreshTokenImpl) ExsistByTokenHash(ctx context.Context, tokenHash string) (bool, error) {
+	var count int64
+	err := rToken.DB.Model(&model.RefreshToken{}).WithContext(ctx).Where("token_hash = ?", tokenHash).Count(&count).Error
+	return count > 0, err
 }
+
 func (rToken *refreshTokenImpl) DeleteByUserID(ctx context.Context, userID int64) error {
 	result := rToken.DB.WithContext(ctx).Delete(&model.RefreshToken{}, "user_id = ?", userID)
 	if result.RowsAffected < 0 {

@@ -3,13 +3,16 @@ package main
 import (
 	"fmt"
 	"log"
+	"reflect"
 	"simple-auth/config"
 	httpHandler "simple-auth/internal/handler/http"
 	"simple-auth/internal/middleware"
 	mysqlRepo "simple-auth/internal/repository/mysql"
 	"simple-auth/internal/router"
 	"simple-auth/internal/service"
+	"strings"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -17,11 +20,20 @@ func main() {
 
 	conf := config.LoadConfig()
 	dbConn := conf.GetConnectionDB()
+	validate := validator.New()
+	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
+		tag := fld.Tag.Get("json")
+		if tag == "-" {
+			return ""
+		}
+		return strings.Split(tag, ",")[0]
+	})
 
-	userRepo := mysqlRepo.NewUserRepository(dbConn)
 	refreshTokenRepo := mysqlRepo.NewRefreshTokenRepository(dbConn)
+	userRepo := mysqlRepo.NewUserRepository(dbConn)
+
 	authService := service.NewAuthService(userRepo, refreshTokenRepo, &conf.Jwt)
-	authHandler := httpHandler.NewAuthHandler(authService)
+	authHandler := httpHandler.NewAuthHandler(authService, validate)
 
 	userHandler := httpHandler.NewUserHandlerImpl()
 

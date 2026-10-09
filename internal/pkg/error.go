@@ -1,17 +1,20 @@
 package pkg
 
 type Kind string
+type ErrorCode string
 
 type AppErr struct {
-	Kind    string
+	Kind Kind
+	// Code    ErrorCode
 	Message string
 	Details any
 }
 
-func NewError(kind Kind, msg string, details any) *AppErr {
+func NewError(kind Kind, msg string, details any) error {
 	return &AppErr{
-		Kind:    string(kind),
+		Kind:    kind,
 		Message: msg,
+		// Code:    code,
 		Details: details,
 	}
 }
@@ -21,9 +24,14 @@ func (appErr *AppErr) Error() string {
 }
 
 const (
-	KindInternal     Kind = "internal server error"
-	KindBadRequest   Kind = "bad request"
-	KindValidation   Kind = "validation error"
+	// KindInternal     Kind = "internal server error"
+	KindBadRequest Kind = "bad request"
+	// KindValidation   Kind = "validation errors"
 	KindUnauthorized Kind = "unauthorized"
 	KindNotFound     Kind = "not found"
 )
+
+// const (
+// 	CodeValidation      ErrorCode = "VALIDATION_ERROR"
+// 	CodeUnauthenticated ErrorCode = "UNAUTHENTICATED"
+// )

@@ -11,14 +11,14 @@ import (
 )
 
 func ErrorHandler(c *fiber.Ctx, err error) error {
-	if errCustom, ok := err.(*pkg.AppErr); ok {
-		log.Println(errCustom.Message)
-		log.Println(errCustom.Details)
+	if errApp, ok := err.(*pkg.AppErr); ok {
+		log.Println(errApp.Message)
+		log.Println(errApp.Details)
 
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.StandardResponse{
+		return c.Status(pkg.GetStatusCode(errApp)).JSON(dto.StandardResponse{
 			Status:  false,
-			Message: errCustom.Message,
-			Error:   errCustom.Details,
+			Message: errApp.Message,
+			Error:   errApp.Details,
 		})
 	}
 

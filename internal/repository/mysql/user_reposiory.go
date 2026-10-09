@@ -27,8 +27,13 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 
 func (userRepo *userRepositoryImpl) FindByID(ctx context.Context, id int64) (*model.UserModel, error) {
 	var user model.UserModel
-	err := userRepo.DB.WithContext(ctx).Take(&userRepo, "id=?", id).Error
-	return &user, err
+	if err := userRepo.DB.WithContext(ctx).Take(&userRepo, "id=?", id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, pkg.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &user, nil
 }
 
 func (userRepo *userRepositoryImpl) Create(ctx context.Context, user *model.UserModel) error {
@@ -42,7 +47,7 @@ func (userRepo *userRepositoryImpl) FindByEmail(ctx context.Context, email strin
 	var user model.UserModel
 	if err := userRepo.DB.WithContext(ctx).Take(&user, "email=?", email).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, pkg.NewError(pkg.KindNotFound, "not found email", nil)
+			return nil, pkg.ErrUserNotFound
 		}
 		return nil, err
 	}
