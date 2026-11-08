@@ -2,8 +2,8 @@ package service
 
 import (
 	"context"
-	"simple-auth/internal/dto"
-	mysqlRepo "simple-auth/internal/repository/mysql"
+	"realtime-chat/internal/dto"
+	mysqlRepo "realtime-chat/internal/repository/mysql"
 )
 
 type UserService interface {

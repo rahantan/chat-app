@@ -2,7 +2,7 @@ package mysql
 
 import (
 	"context"
-	"simple-auth/internal/model"
+	"realtime-chat/internal/model"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

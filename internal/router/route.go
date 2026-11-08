@@ -1,9 +1,9 @@
 package router
 
 import (
-	"simple-auth/config"
-	httpHandler "simple-auth/internal/handler/http"
-	"simple-auth/internal/middleware"
+	"realtime-chat/config"
+	httpHandler "realtime-chat/internal/handler/http"
+	"realtime-chat/internal/middleware"
 
 	"github.com/gofiber/fiber/v2"
 )

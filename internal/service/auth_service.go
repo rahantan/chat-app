@@ -3,11 +3,11 @@ package service
 import (
 	"context"
 	"errors"
-	"simple-auth/config"
-	"simple-auth/internal/dto"
-	"simple-auth/internal/model"
-	"simple-auth/internal/pkg"
-	mysqlRepo "simple-auth/internal/repository/mysql"
+	"realtime-chat/config"
+	"realtime-chat/internal/dto"
+	"realtime-chat/internal/model"
+	"realtime-chat/internal/pkg"
+	mysqlRepo "realtime-chat/internal/repository/mysql"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"

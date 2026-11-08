@@ -3,14 +3,14 @@ package mysql
 import (
 	"context"
 	"errors"
-	"simple-auth/internal/model"
-	"simple-auth/internal/pkg"
+	"realtime-chat/internal/model"
+	"realtime-chat/internal/pkg"
 
 	"gorm.io/gorm"
 )
 
 type UserRepository interface {
-	FindByID(ctx context.Context, id int64) (*model.UserModel, error)
+	FindByID(ctx context.Context, userID int64) (*model.UserModel, error)
 	Create(ctx context.Context, user *model.UserModel) error
 	FindByEmail(ctx context.Context, email string) (*model.UserModel, error)
 }
@@ -25,9 +25,9 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 	}
 }
 
-func (userRepo *userRepositoryImpl) FindByID(ctx context.Context, id int64) (*model.UserModel, error) {
+func (userRepo *userRepositoryImpl) FindByID(ctx context.Context, userID int64) (*model.UserModel, error) {
 	var user model.UserModel
-	if err := userRepo.DB.WithContext(ctx).Take(&userRepo, "id=?", id).Error; err != nil {
+	if err := userRepo.DB.WithContext(ctx).Take(&userRepo, "id=?", userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, pkg.ErrUserNotFound
 		}

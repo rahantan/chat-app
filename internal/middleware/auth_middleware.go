@@ -1,9 +1,9 @@
 package middleware
 
 import (
-	"simple-auth/config"
-	"simple-auth/internal/pkg"
-	"simple-auth/internal/service"
+	"realtime-chat/config"
+	"realtime-chat/internal/pkg"
+	"realtime-chat/internal/service"
 
 	"github.com/gofiber/fiber/v2"
 )

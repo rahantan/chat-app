@@ -6,7 +6,7 @@ goenv    = go get github.com/joho/godotenv
 
 gorm mysql drvier = go get gorm.io/driver/mysql
 
-jwt = go get github.com/gofiber/fiber/v2
+jwt = go get 
 
 validator = go get github.com/go-playground/validator/v10
 

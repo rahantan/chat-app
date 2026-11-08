@@ -1,7 +1,7 @@
 package http
 
 import (
-	"simple-auth/internal/dto"
+	"realtime-chat/internal/dto"
 
 	"github.com/gofiber/fiber/v2"
 )

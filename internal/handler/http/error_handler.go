@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"log"
-	"simple-auth/internal/dto"
-	"simple-auth/internal/pkg"
+	"realtime-chat/internal/dto"
+	"realtime-chat/internal/pkg"
 
 	"github.com/gofiber/fiber/v2"
 )

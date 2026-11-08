@@ -2,9 +2,9 @@ package http
 
 import (
 	"context"
-	"simple-auth/internal/dto"
-	"simple-auth/internal/pkg"
-	"simple-auth/internal/service"
+	"realtime-chat/internal/dto"
+	"realtime-chat/internal/pkg"
+	"realtime-chat/internal/service"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -17,6 +17,7 @@ type AuthHandler interface {
 	LogOut(c *fiber.Ctx) error
 	RefreshToken(c *fiber.Ctx) error
 }
+
 type authHandlerImpl struct {
 	service.AuthService
 	*validator.Validate
