@@ -4,10 +4,9 @@ import (
 	"context"
 	"realtime-chat/internal/dto/request"
 	"realtime-chat/internal/dto/response"
-	"realtime-chat/internal/repository/mysql"
 )
 
-type RoomService interface {
+type RoomServicee interface {
 	ListPrivateRoom(ctx context.Context)
 	// CreatePrivateRoom(ctx context.Context, userID int64, req *request.CreateRoom) error
 
@@ -16,11 +15,6 @@ type RoomService interface {
 	AddMemberToGroup(ctx context.Context, userID, req *request.AddMemberToGroup) error // done
 	ListMemberGroup(ctx context.Context, userID, roomID int64) ([]response.GroupMember, error)
 	DeleteGroup(ctx context.Context, userID, roomID int64) error
-}
-
-type roomServiceImpl struct {
-	roomRepo   mysql.RoomRepository
-	memberRepo mysql.RoomMemberRepository
 }
 
 /*

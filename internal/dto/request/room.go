@@ -6,8 +6,8 @@ type CreateGroup struct {
 }
 
 type AddMemberToGroup struct {
-	RoomID        int64
-	MemberUserIDs []int64
+	RoomID  int64
+	UserIDs []int64
 }
 
 // type CreatePrivateRoom struct {

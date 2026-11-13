@@ -1,6 +1,11 @@
 package model
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var ErrRoomNotFound = errors.New("room not found")
 
 type RoomModel struct {
 	ID        int64             `gorm:"column:id"`
@@ -10,6 +15,9 @@ type RoomModel struct {
 	CreatedAt time.Time         `gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt time.Time         `gorm:"column:updated_at;autoCreateTime;autoUpdateTime"`
 	Members   []RoomMemberModel `gorm:"foreignKey:RoomID"`
+	Messages  []MessageModel    `gorm:"foreignKey:RoomID"`
+
+	LastMessage *MessageModel `gorm:"-"`
 }
 
 type RoomMemberModel struct {

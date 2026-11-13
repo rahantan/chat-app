@@ -1,4 +1,4 @@
-package dto
+package response
 
 type StandardResponse struct {
 	Status  bool   `json:"status"`

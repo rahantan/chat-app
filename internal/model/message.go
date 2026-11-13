@@ -1,6 +1,11 @@
 package model
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var ErrNotFoundMessage = errors.New("not found message")
 
 type MessageAttachmentModel struct {
 	ID       int64  `gorm:"column:id"`

@@ -10,9 +10,9 @@ import (
 )
 
 type ContactService interface {
-	GetByContactUserID(ctx context.Context, contactUserID int64) (*response.Contact, error)
-	List(ctx context.Context) ([]response.Contact, error)
-	Add(ctx context.Context, userID int64, req request.AddContact) error
+	GetContact(ctx context.Context, userID, contactUserID int64) (*response.Contact, error)
+	List(ctx context.Context, userID int64) ([]response.Contact, error)
+	Add(ctx context.Context, userID int64, req *request.AddContact) error
 }
 
 type contactServiceImpl struct {
@@ -22,7 +22,7 @@ type contactServiceImpl struct {
 	tx mysql.TransactorRepository
 }
 
-func (contactSvc *contactServiceImpl) Add(ctx context.Context, userID int64, req request.AddContact) error {
+func (contactSvc *contactServiceImpl) Add(ctx context.Context, userID int64, req *request.AddContact) error {
 	if _, err := contactSvc.UserRepository.FindByID(ctx, req.ContactUserID); err != nil {
 		return err
 	}

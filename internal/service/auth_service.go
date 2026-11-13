@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"realtime-chat/config"
-	"realtime-chat/internal/dto"
+
+	"realtime-chat/internal/dto/request"
+	"realtime-chat/internal/dto/response"
 	"realtime-chat/internal/model"
 	"realtime-chat/internal/pkg"
 	mysqlRepo "realtime-chat/internal/repository/mysql"
@@ -15,11 +17,11 @@ import (
 )
 
 type AuthService interface {
-	Register(ctx context.Context, req *dto.RegisterRequest) error
-	Login(ctx context.Context, req *dto.LoginRequest) (*dto.AuthResponse, error)
+	Register(ctx context.Context, req *request.Register) error
+	Login(ctx context.Context, req *request.Login) (*response.Auth, error)
 	LogOut(ctx context.Context, userID int64) error
-	RefreshToken(ctx context.Context, jwtToken string) (*dto.AuthResponse, error)
-	VerifyToken(secretKey string, tokenStr string) (*dto.UserResponse, error)
+	RefreshToken(ctx context.Context, jwtToken string) (*response.Auth, error)
+	VerifyToken(secretKey string, tokenStr string) (*response.User, error)
 }
 
 type authServiceImpl struct {
@@ -36,7 +38,7 @@ func NewAuthService(userRepo mysqlRepo.UserRepository, rToken mysqlRepo.RefreshT
 	}
 }
 
-func (authService *authServiceImpl) Register(ctx context.Context, req *dto.RegisterRequest) error {
+func (authService *authServiceImpl) Register(ctx context.Context, req *request.Register) error {
 
 	pass, err := bcrypt.GenerateFromPassword([]byte(req.Pass), bcrypt.DefaultCost)
 	if err != nil {
@@ -56,7 +58,7 @@ func (authService *authServiceImpl) LogOut(ctx context.Context, userID int64) er
 	return authService.RefreshTokenRepository.DeleteByUserID(ctx, userID)
 }
 
-func (authService *authServiceImpl) Login(ctx context.Context, req *dto.LoginRequest) (*dto.AuthResponse, error) {
+func (authService *authServiceImpl) Login(ctx context.Context, req *request.Login) (*response.Auth, error) {
 
 	result, err := authService.UserRepository.FindByEmail(ctx, req.Email)
 	if err != nil {
@@ -70,7 +72,7 @@ func (authService *authServiceImpl) Login(ctx context.Context, req *dto.LoginReq
 		return nil, pkg.ErrLogin
 	}
 
-	user := dto.UserResponse{
+	user := response.User{
 		ID:       result.ID,
 		UserName: result.UserName,
 		Email:    result.Email,
@@ -90,14 +92,14 @@ func (authService *authServiceImpl) Login(ctx context.Context, req *dto.LoginReq
 		return nil, err
 	}
 
-	return &dto.AuthResponse{
+	return &response.Auth{
 		RefreshToken: refreshToken,
 		AccessToken:  accessToken,
-		UserResponse: user,
+		User:         user,
 	}, nil
 }
 
-func (authService *authServiceImpl) RefreshToken(ctx context.Context, token string) (*dto.AuthResponse, error) {
+func (authService *authServiceImpl) RefreshToken(ctx context.Context, token string) (*response.Auth, error) {
 	userClaim, err := authService.VerifyToken(authService.Jwt.REFRESH_TOKEN_SECRET_KEY, token)
 	if err != nil {
 		return nil, err
@@ -126,15 +128,15 @@ func (authService *authServiceImpl) RefreshToken(ctx context.Context, token stri
 		return nil, err
 	}
 
-	return &dto.AuthResponse{
+	return &response.Auth{
 		RefreshToken: newRefreshToken,
 		AccessToken:  newAccessToken,
-		UserResponse: *userClaim,
+		User:         *userClaim,
 	}, nil
 }
 
-func (authService *authServiceImpl) VerifyToken(secretKey string, tokenStr string) (*dto.UserResponse, error) {
-	claims := &dto.JwtPayLoad{}
+func (authService *authServiceImpl) VerifyToken(secretKey string, tokenStr string) (*response.User, error) {
+	claims := &response.JwtPayLoad{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, pkg.NewError(pkg.KindUnauthorized, "invalid signature algorithm", nil)
@@ -150,16 +152,16 @@ func (authService *authServiceImpl) VerifyToken(secretKey string, tokenStr strin
 		return nil, pkg.NewError(pkg.KindUnauthorized, "invalid token", nil)
 	}
 
-	return &claims.UserResponse, nil
+	return &claims.User, nil
 }
 
-func (authService *authServiceImpl) createToken(secretKey string, expireTime time.Duration, user *dto.UserResponse) (string, error) {
+func (authService *authServiceImpl) createToken(secretKey string, expireTime time.Duration, user *response.User) (string, error) {
 	start := time.Now()
-	payload := dto.JwtPayLoad{
+	payload := response.JwtPayLoad{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(start.Add(expireTime)),
 		},
-		UserResponse: *user,
+		User: *user,
 	}
 
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, payload).SignedString([]byte(secretKey))

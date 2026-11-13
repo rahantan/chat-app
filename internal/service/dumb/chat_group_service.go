@@ -12,7 +12,7 @@ import (
 
 type ChatGroupService interface {
 	Create(ctx context.Context, userID int64, req *request.CreateGroup) error      // done
-	AddMember(ctx context.Context, userID, req *request.AddMemberToGroup) error    // done
+	AddMembers(ctx context.Context, userID, req *request.AddMemberToGroup) error   // done
 	Detail(ctx context.Context, userID, roomID int64) (*response.ChatGroup, error) // done
 	Delete(ctx context.Context, userID, roomID int64) error
 }
@@ -20,17 +20,19 @@ type ChatGroupService interface {
 type chatGroupServiceImpl struct {
 	roomRepo   mysql.RoomRepository
 	memberRepo mysql.RoomMemberRepository
+	userRepo   mysql.UserRepository
 }
 
 // add member to group
 // - cek room id ada atau tidak
 // - cek apakah userid pada room_member adalah admin
 
-func (cgSvc *chatGroupServiceImpl) AddMember(ctx context.Context, userID int64, req *request.AddMemberToGroup) error {
+func (cgSvc *chatGroupServiceImpl) AddMembers(ctx context.Context, userID int64, req *request.AddMemberToGroup) error {
 	exist, err := cgSvc.roomRepo.IsExist(ctx, req.RoomID)
 	if err != nil {
 		return err
 	}
+
 	if !exist {
 		return errors.New("not found group")
 	}
@@ -44,9 +46,21 @@ func (cgSvc *chatGroupServiceImpl) AddMember(ctx context.Context, userID int64, 
 		return errors.New("anda bukan admin")
 	}
 
-	if err := cgSvc.memberRepo.AddMembers(ctx, req.MemberUserIDs); err != nil {
+	userResults, err := cgSvc.userRepo.FindByIDs(ctx, req.MemberUserIDs)
+	if err != nil {
 		return err
 	}
+
+	if len(userResults) != len(req.MemberUserIDs) {
+		return errors.New("user not found, gunakan user id yang valid")
+	}
+
+	// BELUM BUAT CEK USER APAKAH SUDAH ADA DI GROUP ATAU BELUM
+
+	if err := cgSvc.memberRepo.AddMembers(ctx, req.RoomID, req.MemberUserIDs); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -76,6 +90,7 @@ func (cgSvc *chatGroupServiceImpl) Detail(ctx context.Context, userID, roomID in
 	if err != nil {
 		return nil, err
 	}
+
 	members := make([]response.GroupMember, 0)
 	for _, member := range groupResult.Members {
 		members = append(members, response.GroupMember{

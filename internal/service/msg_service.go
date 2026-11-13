@@ -10,41 +10,49 @@ import (
 	"realtime-chat/internal/repository/mysql"
 )
 
-type ChatService interface {
-	List(ctx context.Context, userID, roomID int64)
-	History(ctx context.Context, userID, roomID int64) ([]response.Message, error) // done
-	SendMessage(ctx context.Context, userID int64, req *request.AddMessage) error  // done
-	DeleteMessage(ctx context.Context, userID, roomID, msgID int64) error          // done
+type MessageService interface {
+	ListMessage(ctx context.Context, userID, roomID int64) ([]response.Message, error) // done
+	SendMessage(ctx context.Context, userID int64, req *request.AddMessage) error      // done
+	DeleteMessage(ctx context.Context, userID, roomID, msgID int64) error              // done
+	EditMessage(ctx context.Context, userID, roomID, msgID int64) error
 }
 
-type chatServiceImpl struct {
+type messageServiceImpl struct {
 	roomRepo   mysql.RoomRepository
 	memberRepo mysql.RoomMemberRepository
 	msgRepo    mysql.MessageRepository
 }
 
-// cek user bisa akses atau ga
-// ambil data
-func (cgSvc *chatServiceImpl) History(ctx context.Context, userID, roomID int64) ([]response.Message, error) {
-
-	exist, err := cgSvc.roomRepo.IsExist(ctx, roomID)
+func (msgSvc *messageServiceImpl) roomValidate(ctx context.Context, userID, roomID int64) error {
+	exist, err := msgSvc.roomRepo.IsExist(ctx, roomID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if !exist {
-		return nil, errors.New("not found room")
+		return errors.New("not found room")
 	}
 
-	_, err = cgSvc.memberRepo.FindByUserIDAndRoomID(ctx, userID, roomID)
+	_, err = msgSvc.memberRepo.FindByUserIDAndRoomID(ctx, userID, roomID)
 	if err != nil {
 		if errors.Is(err, model.ErrUserNotFound) {
-			return nil, errors.New("tidak ada hak akses")
+			return errors.New("tidak ada hak akses")
 		}
+		return err
+	}
+
+	return nil
+}
+
+// cek user bisa akses atau ga
+// ambil data
+func (msgSvc *messageServiceImpl) ListMessage(ctx context.Context, userID, roomID int64) ([]response.Message, error) {
+
+	if err := msgSvc.roomValidate(ctx, userID, roomID); err != nil {
 		return nil, err
 	}
 
-	msgResults, err := cgSvc.msgRepo.FindAllByRoomID(ctx, roomID)
+	msgResults, err := msgSvc.msgRepo.FindAllByRoomID(ctx, roomID)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +73,7 @@ func (cgSvc *chatServiceImpl) History(ctx context.Context, userID, roomID int64)
 			CreatedAt:   msg.CreatedAt.Format(pkg.DateTimeLayout),
 			UpdatedAtAt: msg.UpdatedAt.Format(pkg.DateTimeLayout),
 		}
+
 		if msg.MsgType != pkg.MsgTypeText {
 			attachments := make([]response.Attachment, 0)
 			for _, attchmnt := range msg.Attachments {
@@ -83,7 +92,13 @@ func (cgSvc *chatServiceImpl) History(ctx context.Context, userID, roomID int64)
 	return messages, nil
 
 }
-func (cgSvc *chatServiceImpl) SendMessage(ctx context.Context, userID int64, req *request.AddMessage) error {
+
+func (msgSvc *messageServiceImpl) SendMessage(ctx context.Context, userID int64, req *request.AddMessage) error {
+
+	if err := msgSvc.roomValidate(ctx, userID, req.RoomID); err != nil {
+		return err
+	}
+
 	msg := model.MessageModel{
 		SenderID: userID,
 		RoomID:   req.RoomID,
@@ -91,32 +106,15 @@ func (cgSvc *chatServiceImpl) SendMessage(ctx context.Context, userID int64, req
 		Content:  req.Content,
 	}
 
-	exist, err := cgSvc.roomRepo.IsExist(ctx, req.RoomID)
-	if err != nil {
-		return err
-	}
-
-	if !exist {
-		return errors.New("not found room")
-	}
-
-	_, err = cgSvc.memberRepo.FindByUserIDAndRoomID(ctx, userID, req.RoomID)
-	if err != nil {
-		if errors.Is(err, model.ErrUserNotFound) {
-			return errors.New("tidak diizinkan mengirim pesan")
-		}
-		return err
-	}
-
-	if err := cgSvc.msgRepo.Add(ctx, &msg); err != nil {
+	if err := msgSvc.msgRepo.Add(ctx, &msg); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (cgSvc *chatServiceImpl) DeleteMessage(ctx context.Context, userID, roomID, msgID int64) error {
-	if err := cgSvc.msgRepo.Delete(ctx, userID, roomID, msgID); err != nil {
+func (msgSvc *messageServiceImpl) DeleteMessage(ctx context.Context, userID, roomID, msgID int64) error {
+	if err := msgSvc.msgRepo.Delete(ctx, userID, roomID, msgID); err != nil {
 		return err
 	}
 	return nil
