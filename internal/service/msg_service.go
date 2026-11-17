@@ -11,18 +11,27 @@ import (
 )
 
 type MessageService interface {
-	ListMessage(ctx context.Context, userID, roomID int64) ([]response.Message, error) // done
-	SendMessage(ctx context.Context, userID int64, req *request.AddMessage) error      // done
-	DeleteMessage(ctx context.Context, userID, roomID, msgID int64) error              // done
-	EditMessage(ctx context.Context, userID, roomID, msgID int64) error
+	ListMessage(ctx context.Context, userID, roomID int64) ([]response.Message, error)    // done
+	SendMessage(ctx context.Context, userID, roomID int64, req *request.AddMessage) error // done
+	DeleteMessage(ctx context.Context, userID, roomID, msgID int64) error                 // done
+	// EditMessage(ctx context.Context, userID, roomID, msgID int64) error
 }
 
 type messageServiceImpl struct {
 	roomRepo   mysql.RoomRepository
 	memberRepo mysql.RoomMemberRepository
 	msgRepo    mysql.MessageRepository
+	tx         mysql.TransactorRepository
 }
 
+func NewMessageService(room mysql.RoomRepository, member mysql.RoomMemberRepository, msg mysql.MessageRepository, tx mysql.TransactorRepository) MessageService {
+	return &messageServiceImpl{
+		roomRepo:   room,
+		memberRepo: member,
+		msgRepo:    msg,
+		tx:         tx,
+	}
+}
 func (msgSvc *messageServiceImpl) roomValidate(ctx context.Context, userID, roomID int64) error {
 	exist, err := msgSvc.roomRepo.IsExist(ctx, roomID)
 	if err != nil {
@@ -60,9 +69,9 @@ func (msgSvc *messageServiceImpl) ListMessage(ctx context.Context, userID, roomI
 	messages := make([]response.Message, 0)
 	for _, msg := range msgResults {
 		sender := response.Sender{
-			SenderID:  msg.SenderID,
+			UserID:    msg.SenderID,
 			UserName:  msg.Sender.UserName,
-			ImagePath: msg.Sender.Image,
+			AvatarUrl: pkg.AvatarImageUrl + msg.Sender.Avatar,
 		}
 
 		message := response.Message{
@@ -81,39 +90,51 @@ func (msgSvc *messageServiceImpl) ListMessage(ctx context.Context, userID, roomI
 					AttachmentID: attchmnt.ID,
 					FileType:     attchmnt.FileType,
 					FileSize:     attchmnt.FileSize,
-					FilePath:     pkg.MsgFilePath + attchmnt.FileName,
+					FileUrl:      pkg.MsgFileUrl + attchmnt.FileName,
 				})
 			}
 			message.Attachments = append(message.Attachments, attachments...)
 		}
-
 		messages = append(messages, message)
 	}
 	return messages, nil
-
 }
 
-func (msgSvc *messageServiceImpl) SendMessage(ctx context.Context, userID int64, req *request.AddMessage) error {
+func (msgSvc *messageServiceImpl) SendMessage(ctx context.Context, userID, roomID int64, req *request.AddMessage) error {
 
-	if err := msgSvc.roomValidate(ctx, userID, req.RoomID); err != nil {
+	if err := msgSvc.roomValidate(ctx, userID, roomID); err != nil {
 		return err
 	}
 
 	msg := model.MessageModel{
 		SenderID: userID,
-		RoomID:   req.RoomID,
+		RoomID:   roomID,
 		MsgType:  req.MsgType,
 		Content:  req.Content,
 	}
 
-	if err := msgSvc.msgRepo.Add(ctx, &msg); err != nil {
-		return err
-	}
+	return msgSvc.tx.WithInTransaction(ctx, func(ctxTx context.Context) error {
+		if err := msgSvc.msgRepo.Add(ctx, &msg); err != nil {
+			return err
+		}
 
-	return nil
+		if err := msgSvc.roomRepo.UpdateTime(ctxTx, msg.RoomID); err != nil {
+			return err
+		}
+		return nil
+	})
+
 }
 
 func (msgSvc *messageServiceImpl) DeleteMessage(ctx context.Context, userID, roomID, msgID int64) error {
+	msgResult, err := msgSvc.msgRepo.FindByID(ctx, msgID)
+	if err != nil {
+		return err
+	}
+	if userID != msgResult.SenderID {
+		return pkg.NewErr(pkg.ErrCodeForbidden, "you are not allowed to delete this message")
+	}
+
 	if err := msgSvc.msgRepo.Delete(ctx, userID, roomID, msgID); err != nil {
 		return err
 	}

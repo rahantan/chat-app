@@ -6,37 +6,51 @@ const (
 	DateTimeLayout = "2006-01-02 15:04:05"
 )
 
+// AUTH PATH
 const (
 	RefreshTokenCookiePath = "/api/public/refresh-token"
 	AccessTokenCookiePath  = "/api/protect"
-	ImagePath              = "/api/public/products/image?src="
-	MsgFilePath            = "/api/public/messages/file?src="
 )
 
-var (
-	AccessTokenExpireTime  = 1 * time.Minute
-	RefreshTokenExpireTime = 7 * 24 * time.Hour
+// FILE PATH
+const (
+	BaseImagePath  = "./assets/image"
+	UserImagePath  = BaseImagePath + "/user/"
+	GroupImagePath = BaseImagePath + "/group/"
 )
 
-var (
-	ErrUnauthorized         = NewError(KindUnauthorized, "authentication required", nil)
-	ErrTokenRequired        = NewError(KindUnauthorized, "token is required", nil)
-	ErrNotFound             = NewError(KindNotFound, "not found", nil)
-	ErrCustomInvalidPayload = NewError(KindBadRequest, "invalid payload", nil)
-	ErrLogin                = NewError(KindNotFound, "invalid email or password", nil)
-	ErrUserNotFound         = NewError(KindNotFound, "user not found", nil)
+// URL
+const (
+	// ImagePath   = "/api/public/products/image?src="
+	// MsgFilePath = "/api/public/messages/file?src="
+
+	AvatarImageUrl = "/api/public/user/avatar?src="
+	GroupImageUrl  = "/api/public/group/image?src="
+	MsgFileUrl     = "/api/protect/messages/file?src="
 )
 
+// ROOM
 const (
 	RoomTypePrivate = "private"
 	RoomTypeGroup   = "group"
 
-	RoleMember = "member"
-	RoleAdmin  = "admin"
+	GroupRoleMember = "member"
+	GroupRoleAdmin  = "admin"
 )
 
+// MESSAGE
 const (
 	MsgTypeText  = "text"
 	MsgTypeImage = "image"
 	MsgTypeDoc   = "document"
+)
+
+var (
+	DefaultAvatarImage = "default.png"
+	DefaultGroupImage  = "default.png"
+)
+
+var (
+	AccessTokenExpireTime  = 30 * time.Minute
+	RefreshTokenExpireTime = 7 * 24 * time.Hour
 )

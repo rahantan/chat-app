@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"context"
+	"errors"
 	"realtime-chat/internal/model"
 
 	"gorm.io/gorm"
@@ -9,45 +10,49 @@ import (
 )
 
 type RefreshTokenRepository interface {
-	ExsistByTokenHash(ctx context.Context, tokenHash string) (bool, error)
 	DeleteByUserID(ctx context.Context, userID int64) error
 	UpSertByUserID(ctx context.Context, token *model.RefreshToken) error
+	ExsistByTokenHash(ctx context.Context, tokenHash string) (bool, error)
 }
 
-type refreshTokenImpl struct {
-	*gorm.DB
+type refreshTokenRepositoryImpl struct {
+	baseRepo BaseRepsoitory
 }
 
-func NewRefreshTokenRepository(db *gorm.DB) RefreshTokenRepository {
-	return &refreshTokenImpl{
-		DB: db,
+func NewRefreshTokenRepository(baseRepo BaseRepsoitory) RefreshTokenRepository {
+	return &refreshTokenRepositoryImpl{
+		baseRepo: baseRepo,
 	}
 }
 
-func (rToken *refreshTokenImpl) ExsistByTokenHash(ctx context.Context, tokenHash string) (bool, error) {
-	var count int64
-	err := rToken.DB.Model(&model.RefreshToken{}).WithContext(ctx).Where("token_hash = ?", tokenHash).Count(&count).Error
-	return count > 0, err
-}
+func (tokenRepo *refreshTokenRepositoryImpl) ExsistByTokenHash(ctx context.Context, tokenHash string) (bool, error) {
+	if err := tokenRepo.baseRepo.Conn(ctx).Take(&model.RefreshToken{}, "token_hash = ?", tokenHash).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
 
-func (rToken *refreshTokenImpl) DeleteByUserID(ctx context.Context, userID int64) error {
-	result := rToken.DB.WithContext(ctx).Delete(&model.RefreshToken{}, "user_id = ?", userID)
-	if result.RowsAffected < 0 {
-		return nil
+		return false, err
 	}
-	return result.Error
+
+	return true, nil
 }
-
-func (rToken *refreshTokenImpl) UpSertByUserID(ctx context.Context, token *model.RefreshToken) error {
-	result := rToken.DB.WithContext(ctx).Clauses(
-		clause.OnConflict{
-			Columns:   []clause.Column{{Name: "user_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"token_hash"}),
-		}).Create(token)
-
+func (tokenRepo *refreshTokenRepositoryImpl) DeleteByUserID(ctx context.Context, userID int64) error {
+	result := tokenRepo.baseRepo.Conn(ctx).Delete(&model.RefreshToken{}, "user_id = ?", userID)
 	if result.Error != nil {
 		return result.Error
 	}
 
+	return nil
+
+}
+func (tokenRepo *refreshTokenRepositoryImpl) UpSertByUserID(ctx context.Context, token *model.RefreshToken) error {
+	onConflict := clause.OnConflict{
+		Columns:   []clause.Column{{Name: "user_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"token_hash"}),
+	}
+
+	if err := tokenRepo.baseRepo.Conn(ctx).Clauses(onConflict).Create(token).Error; err != nil {
+		return err
+	}
 	return nil
 }

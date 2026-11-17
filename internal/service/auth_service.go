@@ -48,6 +48,7 @@ func (authService *authServiceImpl) Register(ctx context.Context, req *request.R
 	err = authService.UserRepository.Create(ctx, &model.UserModel{
 		UserName: req.UserName,
 		Email:    req.Email,
+		Avatar:   pkg.DefaultAvatarImage,
 		Password: string(pass),
 	})
 
@@ -62,20 +63,21 @@ func (authService *authServiceImpl) Login(ctx context.Context, req *request.Logi
 
 	result, err := authService.UserRepository.FindByEmail(ctx, req.Email)
 	if err != nil {
-		if errors.Is(err, pkg.ErrUserNotFound) {
-			return nil, pkg.ErrLogin
+		if errors.Is(err, model.ErrUserNotFound) {
+			return nil, pkg.ErrInvalidEmailOrPassword
 		}
 		return nil, err
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(req.Pass)); err != nil {
-		return nil, pkg.ErrLogin
+		return nil, pkg.ErrInvalidEmailOrPassword
 	}
 
 	user := response.User{
-		ID:       result.ID,
-		UserName: result.UserName,
-		Email:    result.Email,
+		ID:        result.ID,
+		UserName:  result.UserName,
+		Email:     result.Email,
+		AvatarUrl: pkg.AvatarImageUrl + result.Avatar,
 	}
 
 	refreshToken, err := authService.createToken(authService.Jwt.REFRESH_TOKEN_SECRET_KEY, pkg.RefreshTokenExpireTime, &user)
@@ -111,7 +113,7 @@ func (authService *authServiceImpl) RefreshToken(ctx context.Context, token stri
 	}
 
 	if !exists {
-		return nil, pkg.NewError(pkg.KindUnauthorized, "token has been revoked", nil)
+		return nil, pkg.ErrTokenRevoked
 	}
 
 	newRefreshToken, err := authService.createToken(authService.REFRESH_TOKEN_SECRET_KEY, pkg.RefreshTokenExpireTime, userClaim)
@@ -139,17 +141,17 @@ func (authService *authServiceImpl) VerifyToken(secretKey string, tokenStr strin
 	claims := &response.JwtPayLoad{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, pkg.NewError(pkg.KindUnauthorized, "invalid signature algorithm", nil)
+			return nil, pkg.ErrInvalidToken
 		}
 		return []byte(secretKey), nil
 	})
 
 	if err != nil {
-		return nil, pkg.NewError(pkg.KindUnauthorized, "token is expired", nil)
+		return nil, pkg.ErrTokenExpired
 	}
 
 	if !token.Valid {
-		return nil, pkg.NewError(pkg.KindUnauthorized, "invalid token", nil)
+		return nil, pkg.ErrInvalidToken
 	}
 
 	return &claims.User, nil

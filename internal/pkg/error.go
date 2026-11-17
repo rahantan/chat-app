@@ -1,37 +1,33 @@
 package pkg
 
-type Kind string
-type ErrorCode string
+import "realtime-chat/internal/dto/response"
 
-type AppErr struct {
-	Kind Kind
-	// Code    ErrorCode
-	Message string
-	Details any
-}
-
-func NewError(kind Kind, msg string, details any) error {
-	return &AppErr{
-		Kind:    kind,
-		Message: msg,
-		// Code:    code,
+func NewErr(code response.Code, msg string, details ...response.FieldErr) error {
+	return &response.Error{
+		Msg:     msg,
+		Code:    code,
 		Details: details,
 	}
 }
 
-func (appErr *AppErr) Error() string {
-	return appErr.Message
-}
-
+// AUTH
 const (
-	// KindInternal     Kind = "internal server error"
-	KindBadRequest Kind = "bad request"
-	// KindValidation   Kind = "validation errors"
-	KindUnauthorized Kind = "unauthorized"
-	KindNotFound     Kind = "not found"
+	ErrCodeUnauthorized       response.Code = "UNAUTHORIZED"
+	ErrCodeForbidden          response.Code = "FORBIDDEN"
+	ErrCodeTokenExpired       response.Code = "TOKEN_EXPIRED"
+	ErrCodeInvalidCredentials response.Code = "INVALID_CREDENTIALS"
 )
 
-// const (
-// 	CodeValidation      ErrorCode = "VALIDATION_ERROR"
-// 	CodeUnauthenticated ErrorCode = "UNAUTHENTICATED"
-// )
+const (
+	ErrCodeTimeOut         response.Code = "TIME_OUT"
+	ErrCodeBadRequest      response.Code = "BAD_REQUEST"
+	ErrCodeNotFound        response.Code = "NOT_FOUND"
+	ErrCodeConflict        response.Code = "CONFLICT"
+	ErrCodeValidationError response.Code = "VALIDATION_ERROR"
+	ErrCodeInternalError   response.Code = "INTERNAL_ERROR"
+)
+
+// CLIENT
+const ()
+
+// ErrInvalidExtFile response.Code = "INVALID_EXT_FILE"

@@ -1,21 +1,21 @@
 package service
 
-import (
-	"context"
-	"realtime-chat/internal/dto/request"
-	"realtime-chat/internal/dto/response"
-)
+// import (
+// 	"context"
+// 	"realtime-chat/internal/dto/request"
+// 	"realtime-chat/internal/dto/response"
+// )
 
-type RoomServicee interface {
-	ListPrivateRoom(ctx context.Context)
-	// CreatePrivateRoom(ctx context.Context, userID int64, req *request.CreateRoom) error
+// type RoomServicee interface {
+// 	ListPrivateRoom(ctx context.Context)
+// 	// CreatePrivateRoom(ctx context.Context, userID int64, req *request.CreateRoom) error
 
-	ListGroupRoom(ctx context.Context, userID int64)
-	CreateGroup(ctx context.Context, userID int64, req *request.CreateGroup) error     // done
-	AddMemberToGroup(ctx context.Context, userID, req *request.AddMemberToGroup) error // done
-	ListMemberGroup(ctx context.Context, userID, roomID int64) ([]response.GroupMember, error)
-	DeleteGroup(ctx context.Context, userID, roomID int64) error
-}
+// 	ListGroupRoom(ctx context.Context, userID int64)
+// 	CreateGroup(ctx context.Context, userID int64, req *request.CreateGroup) error     // done
+// 	AddMemberToGroup(ctx context.Context, userID, req *request.AddMemberToGroup) error // done
+// 	ListMemberGroup(ctx context.Context, userID, roomID int64) ([]response.GroupMember, error)
+// 	DeleteGroup(ctx context.Context, userID, roomID int64) error
+// }
 
 /*
 1.list room

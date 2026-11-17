@@ -1,13 +1,16 @@
 package request
 
 type CreateGroup struct {
-	Name  string `json:"name"`
+	Name  string `json:"name" form:"name" validate:"required"`
 	Image *ImageUpload
 }
 
 type AddMemberToGroup struct {
-	RoomID  int64
-	UserIDs []int64
+	UserIDs []int64 `json:"user_ids"`
+}
+
+type GetOrCreatePrivateRoom struct {
+	TargetUserID int64 `json:"target_user_id"`
 }
 
 // type CreatePrivateRoom struct {

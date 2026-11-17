@@ -2,13 +2,17 @@ package mysql
 
 import (
 	"context"
+	"errors"
 	"realtime-chat/internal/model"
+
+	"gorm.io/gorm"
 )
 
 type MessageRepository interface {
-	Add(ctx context.Context, msg *model.MessageModel) error
 	FindAllByRoomID(ctx context.Context, roomID int64) ([]model.MessageModel, error)
+	FindByID(ctx context.Context, msgID int64) (*model.MessageModel, error)
 	Delete(ctx context.Context, userID, roomID, msgID int64) error
+	Add(ctx context.Context, msg *model.MessageModel) error
 }
 
 type messageRepositoryImpl struct {
@@ -21,6 +25,18 @@ func NewMessageRepository(repo BaseRepsoitory) MessageRepository {
 	}
 }
 
+func (msgRepo *messageRepositoryImpl) FindByID(ctx context.Context, msgID int64) (*model.MessageModel, error) {
+	var message model.MessageModel
+
+	if err := msgRepo.baseRepo.Conn(ctx).Take(&message, "id = ?", msgID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, model.ErrMessageNotFound
+		}
+		return nil, err
+	}
+
+	return &message, nil
+}
 func (msgRepo *messageRepositoryImpl) FindAllByRoomID(ctx context.Context, roomID int64) ([]model.MessageModel, error) {
 	messages := make([]model.MessageModel, 0)
 
@@ -36,8 +52,9 @@ func (msgRepo *messageRepositoryImpl) Delete(ctx context.Context, userID, roomID
 	if result.Error != nil {
 		return result.Error
 	}
+
 	if result.RowsAffected == 0 {
-		return model.ErrNotFoundMessage
+		return model.ErrMessageNotFound
 	}
 	return nil
 }

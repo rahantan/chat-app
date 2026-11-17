@@ -1,11 +1,8 @@
 package model
 
 import (
-	"errors"
 	"time"
 )
-
-var ErrRoomNotFound = errors.New("room not found")
 
 type RoomModel struct {
 	ID        int64             `gorm:"column:id"`
@@ -20,6 +17,10 @@ type RoomModel struct {
 	LastMessage *MessageModel `gorm:"-"`
 }
 
+func (*RoomModel) TableName() string {
+	return "rooms"
+}
+
 type RoomMemberModel struct {
 	ID     int64  `gorm:"column:id"`
 	Role   string `gorm:"column:role"`
@@ -27,4 +28,8 @@ type RoomMemberModel struct {
 	UserID int64  `gorm:"column:user_id"`
 
 	User UserModel `gorm:"foreignKey:UserID;references:ID"`
+}
+
+func (*RoomMemberModel) TableName() string {
+	return "room_members"
 }

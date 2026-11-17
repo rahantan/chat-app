@@ -3,54 +3,60 @@ package main
 import (
 	"fmt"
 	"log"
-	"reflect"
 	"realtime-chat/config"
 	httpHandler "realtime-chat/internal/handler/http"
 	"realtime-chat/internal/middleware"
 	mysqlRepo "realtime-chat/internal/repository/mysql"
 	"realtime-chat/internal/router"
 	"realtime-chat/internal/service"
-	"strings"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
 
 func main() {
 
 	conf := config.LoadConfig()
-	dbConn := conf.GetConnectionDB()
-	validate := validator.New()
-	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
-		tag := fld.Tag.Get("json")
-		if tag == "-" {
-			return ""
-		}
-		return strings.Split(tag, ",")[0]
-	})
+	conn := conf.GetConnectionDB()
+	validate := conf.GetValidator()
 
-	refreshTokenRepo := mysqlRepo.NewRefreshTokenRepository(dbConn)
-	userRepo := mysqlRepo.NewUserRepository(dbConn)
+	baseRepo := mysqlRepo.NewBaseRepository(conn)
+	txRepo := mysqlRepo.NewTransactorRepository(conn)
+
+	refreshTokenRepo := mysqlRepo.NewRefreshTokenRepository(baseRepo)
+	userRepo := mysqlRepo.NewUserRepository(baseRepo)
+	contactRepo := mysqlRepo.NewContactRepository(baseRepo)
+	roomRepo := mysqlRepo.NewRoomRepository(baseRepo)
+	roomMemberRepo := mysqlRepo.NewRoomMemberRepository(baseRepo)
+	msgRepo := mysqlRepo.NewMessageRepository(baseRepo)
 
 	authService := service.NewAuthService(userRepo, refreshTokenRepo, &conf.Jwt)
+	roomService := service.NewRoomService(roomRepo, roomMemberRepo, userRepo)
+	contactService := service.NewContactService(contactRepo, userRepo)
+	userService := service.NewUserService(userRepo)
+	msgService := service.NewMessageService(roomRepo, roomMemberRepo, msgRepo, txRepo)
+
 	authHandler := httpHandler.NewAuthHandler(authService, validate)
+	userHandler := httpHandler.NewUserHandler(userService)
+	contactHandler := httpHandler.NewContactHandler(contactService)
+	roomHandler := httpHandler.NewRoomHandler(roomService)
+	msgHandler := httpHandler.NewMessageHandler(msgService)
 
-	userHandler := httpHandler.NewUserHandlerImpl()
+	authMiddleWare := middleware.NewAuthMiddleWare(authService, &conf.Jwt)
 
-	middleWare := middleware.NewMiddleWare(authService, &conf.Jwt)
-
-	route := router.Route{
-		AuthHandler: authHandler,
-		UserHandler: userHandler,
-		Jwt:         conf.Jwt,
-		MiddleWare:  middleWare,
+	dependency := router.Dependency{
+		AuthHandler:    authHandler,
+		AuthMiddleWare: authMiddleWare,
+		ContactHandler: contactHandler,
+		UserHandler:    userHandler,
+		RoomHandler:    roomHandler,
+		MessageHandler: msgHandler,
 	}
 
 	app := fiber.New(fiber.Config{
 		ErrorHandler: httpHandler.ErrorHandler,
 	})
 
-	router.Router(app, &route)
+	router.Router(app, &dependency)
 
 	if err := app.Listen(fmt.Sprintf("%s:%s",
 		conf.Server.Host,

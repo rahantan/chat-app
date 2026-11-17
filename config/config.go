@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"reflect"
+	"strings"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	mysqlDriver "gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -76,4 +79,16 @@ func (conf *Config) GetConnectionDB() *gorm.DB {
 	}
 
 	return db
+}
+func (conf *Config) GetValidator() *validator.Validate {
+	validate := validator.New()
+	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
+		tag := fld.Tag.Get("json")
+		if tag == "-" {
+			return ""
+		}
+		return strings.Split(tag, ",")[0]
+	})
+
+	return validate
 }

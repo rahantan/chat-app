@@ -2,7 +2,9 @@ package http
 
 import (
 	"context"
-	"realtime-chat/internal/dto"
+
+	"realtime-chat/internal/dto/request"
+	"realtime-chat/internal/dto/response"
 	"realtime-chat/internal/pkg"
 	"realtime-chat/internal/service"
 	"time"
@@ -12,12 +14,11 @@ import (
 )
 
 type AuthHandler interface {
-	Register(c *fiber.Ctx) error
-	Login(c *fiber.Ctx) error
-	LogOut(c *fiber.Ctx) error
-	RefreshToken(c *fiber.Ctx) error
+	Register(ctx *fiber.Ctx) error
+	Login(ctx *fiber.Ctx) error
+	LogOut(ctx *fiber.Ctx) error
+	RefreshToken(ctx *fiber.Ctx) error
 }
-
 type authHandlerImpl struct {
 	service.AuthService
 	*validator.Validate
@@ -30,29 +31,52 @@ func NewAuthHandler(authService service.AuthService, v *validator.Validate) Auth
 	}
 }
 
-func (authHandler *authHandlerImpl) Register(c *fiber.Ctx) error {
-	var reqBody dto.RegisterRequest
-	if err := c.BodyParser(&reqBody); err != nil {
-		return err
+func (authHandler *authHandlerImpl) Register(ctx *fiber.Ctx) error {
+	var reqBody request.Register
+	if err := ctx.BodyParser(&reqBody); err != nil {
+		return pkg.ErrInvalidPayload
 	}
 
 	if err := authHandler.Validate.Struct(&reqBody); err != nil {
-		pkg.ValidationErr(err)
+		return pkg.ValidationError(err)
 	}
 
-	ctx, cancel := context.WithTimeout(c.UserContext(), 5*time.Second)
+	c, cancel := context.WithTimeout(ctx.UserContext(), 5*time.Second)
 	defer cancel()
 
-	err := authHandler.AuthService.Register(ctx, &reqBody)
+	err := authHandler.AuthService.Register(c, &reqBody)
 	if err != nil {
 		return err
 	}
 
-	return c.SendStatus(fiber.StatusCreated)
+	return ctx.SendStatus(fiber.StatusCreated)
 }
 
-func (authHandler *authHandlerImpl) LogOut(c *fiber.Ctx) error {
-	c.Cookie(&fiber.Cookie{
+func (authHandler *authHandlerImpl) Login(ctx *fiber.Ctx) error {
+	var reqBody request.Login
+	if err := ctx.BodyParser(&reqBody); err != nil {
+		return pkg.ErrInvalidPayload
+	}
+
+	if err := authHandler.Validate.Struct(&reqBody); err != nil {
+		return pkg.ValidationError(err)
+	}
+
+	c, cancel := context.WithTimeout(ctx.UserContext(), 5*time.Second)
+	defer cancel()
+
+	result, err := authHandler.AuthService.Login(c, &reqBody)
+	if err != nil {
+		return err
+	}
+
+	authHandler.setAuthCookies(ctx, result)
+
+	return successResponse(ctx, fiber.StatusOK, "success login", result.User)
+}
+
+func (authHandler *authHandlerImpl) LogOut(ctx *fiber.Ctx) error {
+	ctx.Cookie(&fiber.Cookie{
 		Name:     "refresh_token",
 		Value:    "",
 		Path:     pkg.RefreshTokenCookiePath,
@@ -60,7 +84,7 @@ func (authHandler *authHandlerImpl) LogOut(c *fiber.Ctx) error {
 		HTTPOnly: false,
 		Secure:   false,
 	})
-	c.Cookie(&fiber.Cookie{
+	ctx.Cookie(&fiber.Cookie{
 		Name:     "access_token",
 		Value:    "",
 		Path:     pkg.AccessTokenCookiePath,
@@ -68,56 +92,30 @@ func (authHandler *authHandlerImpl) LogOut(c *fiber.Ctx) error {
 		HTTPOnly: false,
 		Secure:   false,
 	})
-	return c.SendStatus(fiber.StatusOK)
+	return ctx.SendStatus(fiber.StatusOK)
 }
 
-func (authHandler *authHandlerImpl) Login(c *fiber.Ctx) error {
-	var reqBody dto.LoginRequest
-	if err := c.BodyParser(&reqBody); err != nil {
-		return err
-	}
-
-	if err := authHandler.Validate.Struct(&reqBody); err != nil {
-		pkg.ValidationErr(err)
-	}
-
-	ctx, cancel := context.WithTimeout(c.UserContext(), 5*time.Second)
-	defer cancel()
-
-	result, err := authHandler.AuthService.Login(ctx, &reqBody)
-	if err != nil {
-		return err
-	}
-
-	authHandler.setAuthCookies(c, result)
-
-	return c.Status(fiber.StatusOK).JSON(dto.StandardResponse{
-		Status:  true,
-		Message: "SUCCESS LOGIN",
-		Data: map[string]any{
-			"user": result.UserResponse,
-		}},
-	)
-}
-
-func (authHandler *authHandlerImpl) RefreshToken(c *fiber.Ctx) error {
-	tokenStr := c.Cookies("refresh_token")
+func (authHandler *authHandlerImpl) RefreshToken(ctx *fiber.Ctx) error {
+	tokenStr := ctx.Cookies("refresh_token")
 	if tokenStr == "" {
 		return pkg.ErrTokenRequired
 	}
 
-	result, err := authHandler.AuthService.RefreshToken(c.UserContext(), tokenStr)
+	c, cancel := context.WithTimeout(ctx.UserContext(), 5*time.Second)
+	defer cancel()
+
+	result, err := authHandler.AuthService.RefreshToken(c, tokenStr)
 	if err != nil {
 		return err
 	}
 
-	authHandler.setAuthCookies(c, result)
+	authHandler.setAuthCookies(ctx, result)
 
-	return c.SendStatus(fiber.StatusOK)
+	return ctx.SendStatus(fiber.StatusNoContent)
 }
 
-func (authHandler *authHandlerImpl) setAuthCookies(c *fiber.Ctx, auth *dto.AuthResponse) {
-	c.Cookie(&fiber.Cookie{
+func (authHandler *authHandlerImpl) setAuthCookies(ctx *fiber.Ctx, auth *response.Auth) {
+	ctx.Cookie(&fiber.Cookie{
 		Name:     "refresh_token",
 		Value:    auth.RefreshToken,
 		Path:     pkg.RefreshTokenCookiePath,
@@ -126,7 +124,7 @@ func (authHandler *authHandlerImpl) setAuthCookies(c *fiber.Ctx, auth *dto.AuthR
 		Expires:  time.Now().Add(pkg.RefreshTokenExpireTime),
 	})
 
-	c.Cookie(&fiber.Cookie{
+	ctx.Cookie(&fiber.Cookie{
 		Name:     "access_token",
 		Value:    auth.AccessToken,
 		Path:     pkg.AccessTokenCookiePath,

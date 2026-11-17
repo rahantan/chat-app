@@ -1,16 +1,16 @@
 package response
 
 type Sender struct {
-	SenderID  int64
-	UserName  string
-	ImagePath string
+	UserID    int64  `json:"user_id"`
+	UserName  string `json:"username"`
+	AvatarUrl string `json:"avatar_url"`
 }
 
 type Attachment struct {
-	AttachmentID int64
-	FileType     string
-	FileSize     string
-	FilePath     string
+	AttachmentID int64  `json:"attachment_id"`
+	FileType     string `json:"file_type"`
+	FileSize     string `json:"file_size"`
+	FileUrl      string `json:"file_url"`
 }
 
 type Message struct {

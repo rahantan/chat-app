@@ -7,5 +7,5 @@ type RefreshToken struct {
 }
 
 func (*RefreshToken) TableName() string {
-	return "refresh_token"
+	return "refresh_tokens"
 }

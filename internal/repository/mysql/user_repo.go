@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"realtime-chat/internal/model"
-	"realtime-chat/internal/pkg"
 
 	"gorm.io/gorm"
 )
@@ -38,9 +37,9 @@ func (userRepo *userRepositoryImpl) FindByIDs(ctx context.Context, userIDs []int
 
 func (userRepo *userRepositoryImpl) FindByID(ctx context.Context, userID int64) (*model.UserModel, error) {
 	var user model.UserModel
-	if err := userRepo.baseRepo.Conn(ctx).Take(&userRepo, "id=?", userID).Error; err != nil {
+	if err := userRepo.baseRepo.Conn(ctx).Take(&user, "id=?", userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, pkg.ErrUserNotFound
+			return nil, model.ErrUserNotFound
 		}
 		return nil, err
 	}
@@ -58,7 +57,7 @@ func (userRepo *userRepositoryImpl) FindByEmail(ctx context.Context, email strin
 	var user model.UserModel
 	if err := userRepo.baseRepo.Conn(ctx).Take(&user, "email=?", email).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, pkg.ErrUserNotFound
+			return nil, model.ErrUserNotFound
 		}
 		return nil, err
 	}
