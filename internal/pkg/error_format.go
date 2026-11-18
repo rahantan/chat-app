@@ -22,3 +22,6 @@ var (
 // CONTACT ERROR
 // MESSAGE ERROR
 // GROUP ERROR
+var (
+	ErrRoomNotGroup = NewErr(ErrCodeUnprocessable, "this action cannot be performed on a private room")
+)

@@ -21,6 +21,7 @@ const (
 const (
 	ErrCodeTimeOut         response.Code = "TIME_OUT"
 	ErrCodeBadRequest      response.Code = "BAD_REQUEST"
+	ErrCodeUnprocessable   response.Code = "UNPROCESSABLE"
 	ErrCodeNotFound        response.Code = "NOT_FOUND"
 	ErrCodeConflict        response.Code = "CONFLICT"
 	ErrCodeValidationError response.Code = "VALIDATION_ERROR"

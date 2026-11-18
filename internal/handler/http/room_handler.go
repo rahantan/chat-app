@@ -14,11 +14,12 @@ type RoomHandler interface {
 	ListMyRooms(ctx *fiber.Ctx) error
 	GetRoomDetail(ctx *fiber.Ctx) error
 
+	GetOrCreatePrivateRoom(ctx *fiber.Ctx) error
+
 	CreateGroup(ctx *fiber.Ctx) error
 	AddMembersToGroup(ctx *fiber.Ctx) error
+	RemoveMembersFromGroup(ctx *fiber.Ctx) error
 	DeleteGroup(ctx *fiber.Ctx) error
-
-	GetOrCreatePrivateRoom(ctx *fiber.Ctx) error
 }
 
 type roomHandlerImpl struct {
@@ -67,6 +68,32 @@ func (roomHandler *roomHandlerImpl) GetRoomDetail(ctx *fiber.Ctx) error {
 
 	return successResponse(ctx, fiber.StatusOK, "success get room detail", result)
 }
+
+func (roomHandler *roomHandlerImpl) GetOrCreatePrivateRoom(ctx *fiber.Ctx) error {
+	user, err := getUserData(ctx)
+	if err != nil {
+		return err
+	}
+
+	var reqBody request.GetOrCreatePrivateRoom
+	if err := ctx.BodyParser(&reqBody); err != nil {
+		return pkg.ValidationError(err)
+	}
+
+	c, cancel := context.WithTimeout(ctx.UserContext(), 5*time.Second)
+	defer cancel()
+
+	roomID, err := roomHandler.RoomService.GetOrCreatePrivateRoom(c, user.ID, &reqBody)
+	if err != nil {
+		return err
+	}
+
+	return successResponse(ctx, fiber.StatusOK, "success get", map[string]any{
+		"room_id": roomID,
+	})
+}
+
+// GROUP AREA
 
 func (roomHandler *roomHandlerImpl) CreateGroup(ctx *fiber.Ctx) error {
 	user, err := getUserData(ctx)
@@ -119,7 +146,7 @@ func (roomHandler *roomHandlerImpl) AddMembersToGroup(ctx *fiber.Ctx) error {
 		return pkg.ErrInvalidParamID
 	}
 
-	var reqBody request.AddMemberToGroup
+	var reqBody request.AddMembersToGroup
 	if err := ctx.BodyParser(&reqBody); err != nil {
 		return pkg.ValidationError(err)
 	}
@@ -133,17 +160,18 @@ func (roomHandler *roomHandlerImpl) AddMembersToGroup(ctx *fiber.Ctx) error {
 
 	return ctx.SendStatus(fiber.StatusNoContent)
 }
-func (roomHandler *roomHandlerImpl) DeleteGroup(ctx *fiber.Ctx) error {
-	return nil
-}
-
-func (roomHandler *roomHandlerImpl) GetOrCreatePrivateRoom(ctx *fiber.Ctx) error {
+func (roomHandler *roomHandlerImpl) RemoveMembersFromGroup(ctx *fiber.Ctx) error {
 	user, err := getUserData(ctx)
 	if err != nil {
 		return err
 	}
 
-	var reqBody request.GetOrCreatePrivateRoom
+	roomID, err := ctx.ParamsInt("roomID")
+	if err != nil {
+		return pkg.ErrInvalidParamID
+	}
+
+	var reqBody request.RemoveMembersFromGroup
 	if err := ctx.BodyParser(&reqBody); err != nil {
 		return pkg.ValidationError(err)
 	}
@@ -151,12 +179,28 @@ func (roomHandler *roomHandlerImpl) GetOrCreatePrivateRoom(ctx *fiber.Ctx) error
 	c, cancel := context.WithTimeout(ctx.UserContext(), 5*time.Second)
 	defer cancel()
 
-	roomID, err := roomHandler.RoomService.GetOrCreatePrivateRoom(c, user.ID, &reqBody)
+	if err := roomHandler.RoomService.RemoveMembersFromGroup(c, user.ID, int64(roomID), &reqBody); err != nil {
+		return err
+	}
+
+	return ctx.SendStatus(fiber.StatusNoContent)
+}
+func (roomHandler *roomHandlerImpl) DeleteGroup(ctx *fiber.Ctx) error {
+	user, err := getUserData(ctx)
 	if err != nil {
 		return err
 	}
 
-	return successResponse(ctx, fiber.StatusOK, "success get", map[string]any{
-		"room_id": roomID,
-	})
+	roomID, err := ctx.ParamsInt("roomID")
+	if err != nil {
+		return pkg.ErrInvalidParamID
+	}
+
+	c, cancel := context.WithTimeout(ctx.UserContext(), 5*time.Second)
+	defer cancel()
+
+	if err := roomHandler.RoomService.DeleteGroupRoom(c, user.ID, int64(roomID)); err != nil {
+		return err
+	}
+	return ctx.SendStatus(fiber.StatusNoContent)
 }

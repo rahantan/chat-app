@@ -5,7 +5,11 @@ type CreateGroup struct {
 	Image *ImageUpload
 }
 
-type AddMemberToGroup struct {
+type RemoveMembersFromGroup struct {
+	UserIDs []int64 `json:"user_ids"`
+}
+
+type AddMembersToGroup struct {
 	UserIDs []int64 `json:"user_ids"`
 }
 

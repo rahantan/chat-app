@@ -15,6 +15,8 @@ func GetStatusCode(err error) int {
 			return http.StatusUnauthorized
 		case ErrCodeForbidden:
 			return http.StatusForbidden
+		case ErrCodeUnprocessable:
+			return http.StatusUnprocessableEntity
 		case ErrCodeNotFound:
 			return http.StatusNotFound
 		case ErrCodeConflict:

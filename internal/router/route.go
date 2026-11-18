@@ -52,14 +52,6 @@ func (depend Dependency) contact(route fiber.Router) {
 	route.Post("/contacts", contact.Add)
 }
 
-// func (depend Dependency) message(route fiber.Router) {
-// 	msg := depend.MessageHandler
-
-// 	route.Delete("/messages/:messageID", msg.Delete)
-// 	route.Post("/messages", msg.Send)
-// 	route.Get("/messages", msg.List)
-// }
-
 func (depend Dependency) room(route fiber.Router) {
 	room := depend.RoomHandler
 	msg := depend.MessageHandler
@@ -68,8 +60,9 @@ func (depend Dependency) room(route fiber.Router) {
 	route.Post("/rooms/:roomID/messages", msg.Send)
 	route.Get("/rooms/:roomID/messages", msg.List)
 
+	route.Post("/rooms/:roomID/group/members", room.AddMembersToGroup)
+	route.Delete("/rooms/:roomID/group/members", room.RemoveMembersFromGroup)
 	route.Delete("/rooms/:roomID/group", room.DeleteGroup)
-	route.Post("/rooms/:roomID/group", room.AddMembersToGroup)
 	route.Post("rooms/group", room.CreateGroup)
 
 	route.Post("/rooms/private", room.GetOrCreatePrivateRoom)

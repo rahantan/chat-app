@@ -9,24 +9,19 @@ import (
 	"realtime-chat/internal/model"
 	"realtime-chat/internal/pkg"
 	"realtime-chat/internal/repository/mysql"
+	"slices"
 )
 
 type RoomService interface {
-	// ListMyRooms(ctx context.Context, userID int64) ([]dto.RoomResponse, error)
+	ListMyRooms(ctx context.Context, userID int64) ([]response.Room, error)          // done
+	GetRoomDetail(ctx context.Context, userID, roomID int64) (*response.Room, error) // done
 
-	// GetRoomDetail(ctx context.Context, userID, roomID int64) (*dto.RoomDetailResponse, error)
+	GetOrCreatePrivateRoom(ctx context.Context, userID int64, req *request.GetOrCreatePrivateRoom) (int64, error) // done
 
-	// CreateGroupRoom(ctx context.Context, userID int64, req dto.CreateGroupRoomRequest) (*dto.RoomResponse, error)
-
-	ListMyRooms(ctx context.Context, userID int64) ([]response.Room, error)                           // done
-	GetRoomDetail(ctx context.Context, userID, roomID int64) (*response.Room, error)                  // done
-	CreateGroupRoom(ctx context.Context, userID int64, req *request.CreateGroup) error                // done
-	AddMembersToGroup(ctx context.Context, userID, roomID int64, req *request.AddMemberToGroup) error // done
-
-	GetOrCreatePrivateRoom(ctx context.Context, userID int64, req *request.GetOrCreatePrivateRoom) (int64, error)
-	// DeleteGroupRoom(ctx context.Context, userID, roomID int64) error // BELUM
-
-	// GetOrCreatePrivateRoom(ctx context.Context, userID, targetUserID int64) (*model.RoomModel, error)
+	AddMembersToGroup(ctx context.Context, userID, roomID int64, req *request.AddMembersToGroup) error           // done
+	CreateGroupRoom(ctx context.Context, userID int64, req *request.CreateGroup) error                           // done
+	RemoveMembersFromGroup(ctx context.Context, userID, roomID int64, req *request.RemoveMembersFromGroup) error // done
+	DeleteGroupRoom(ctx context.Context, userID, roomID int64) error                                             // done
 }
 
 type roomServiceImpl struct {
@@ -43,7 +38,7 @@ func NewRoomService(room mysql.RoomRepository, member mysql.RoomMemberRepository
 	}
 }
 func (roomSvc *roomServiceImpl) ListMyRooms(ctx context.Context, userID int64) ([]response.Room, error) {
-	roomResults, err := roomSvc.roomRepo.FindAll(ctx, userID)
+	roomResults, err := roomSvc.roomRepo.FindByUserIDWithDetail(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +89,7 @@ func (roomSvc *roomServiceImpl) ListMyRooms(ctx context.Context, userID int64) (
 
 func (roomSvc *roomServiceImpl) GetRoomDetail(ctx context.Context, userID, roomID int64) (*response.Room, error) {
 
-	roomResult, err := roomSvc.roomRepo.FindDetailByID(ctx, roomID)
+	roomResult, err := roomSvc.roomRepo.FindByIDWithMembers(ctx, roomID)
 	if err != nil {
 		return nil, err
 	}
@@ -123,6 +118,7 @@ func (roomSvc *roomServiceImpl) GetRoomDetail(ctx context.Context, userID, roomI
 		members = append(members, response.Member{
 			UserID:    member.UserID,
 			UserName:  member.User.UserName,
+			Role:      member.Role,
 			AvatarUrl: pkg.AvatarImageUrl + member.User.Avatar,
 		})
 	}
@@ -137,6 +133,46 @@ func (roomSvc *roomServiceImpl) GetRoomDetail(ctx context.Context, userID, roomI
 	}, nil
 }
 
+func (roomSvc *roomServiceImpl) GetOrCreatePrivateRoom(ctx context.Context, userID int64, req *request.GetOrCreatePrivateRoom) (int64, error) {
+	roomID, err := roomSvc.roomRepo.FindPrivateRoomByUsers(ctx, userID, req.TargetUserID)
+	if err == nil {
+		return roomID, nil
+	}
+
+	if !errors.Is(err, model.ErrRoomNotFound) {
+		return 0, err
+	}
+
+	_, err = roomSvc.userRepo.FindByID(ctx, req.TargetUserID)
+	if err != nil {
+		return 0, err
+	}
+
+	room := model.RoomModel{
+		Type: pkg.RoomTypePrivate,
+		Members: []model.RoomMemberModel{
+			{UserID: userID},
+			{UserID: req.TargetUserID},
+		},
+	}
+
+	if err := roomSvc.roomRepo.Create(ctx, &room); err != nil {
+		if !errors.Is(err, model.ErrDuplicatePrivateRoom) {
+			return 0, err
+		}
+
+		roomID, findErr := roomSvc.roomRepo.FindPrivateRoomByUsers(ctx, userID, req.TargetUserID)
+		if findErr != nil {
+			return 0, findErr
+		}
+
+		return roomID, nil
+	}
+
+	return room.ID, nil
+}
+
+// GROUP AREA
 func (roomSvc *roomServiceImpl) CreateGroupRoom(ctx context.Context, userID int64, req *request.CreateGroup) error {
 	admin := model.RoomMemberModel{
 		Role:   pkg.GroupRoleAdmin,
@@ -163,16 +199,35 @@ func (roomSvc *roomServiceImpl) CreateGroupRoom(ctx context.Context, userID int6
 
 	return nil
 }
-func (roomSvc *roomServiceImpl) AddMembersToGroup(ctx context.Context, userID, roomID int64, req *request.AddMemberToGroup) error {
-	_, err := roomSvc.roomRepo.FindByID(ctx, roomID)
+
+func (roomSvc *roomServiceImpl) validateOnlyAdmin(ctx context.Context, userID int64, roomID int64) error {
+	roomResult, err := roomSvc.roomRepo.FindByID(ctx, roomID)
 	if err != nil {
 		return err
 	}
 
-	userIDs := append([]int64{userID}, req.UserIDs...)
+	if roomResult.Type == pkg.RoomTypePrivate {
+		return pkg.ErrRoomNotGroup
+	}
+
+	me, err := roomSvc.memberRepo.FindByUserIDAndRoomID(ctx, userID, roomID)
+	if err != nil {
+		if errors.Is(err, model.ErrMemberNotFound) {
+			return pkg.ErrAccessDenied
+		}
+		return err
+	}
+
+	if me.Role != pkg.GroupRoleAdmin {
+		return pkg.ErrForbidden
+	}
+	return nil
+}
+
+func (roomSvc *roomServiceImpl) getMembersWithMap(ctx context.Context, roomID int64, userIDs []int64) (map[int64]model.RoomMemberModel, error) {
 	memberResults, err := roomSvc.memberRepo.FindByRoomIDAndUserIDs(ctx, roomID, userIDs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	membersMap := make(map[int64]model.RoomMemberModel)
@@ -180,12 +235,18 @@ func (roomSvc *roomServiceImpl) AddMembersToGroup(ctx context.Context, userID, r
 		membersMap[member.UserID] = member
 	}
 
-	if owner, ok := membersMap[userID]; ok {
-		if owner.Role != pkg.GroupRoleAdmin {
-			return pkg.ErrForbidden
-		}
-	} else {
-		return pkg.ErrForbidden
+	return membersMap, nil
+}
+
+func (roomSvc *roomServiceImpl) AddMembersToGroup(ctx context.Context, userID, roomID int64, req *request.AddMembersToGroup) error {
+
+	if err := roomSvc.validateOnlyAdmin(ctx, userID, roomID); err != nil {
+		return err
+	}
+
+	membersMap, err := roomSvc.getMembersWithMap(ctx, roomID, req.UserIDs)
+	if err != nil {
+		return err
 	}
 
 	memberExists := []int64{}
@@ -210,51 +271,60 @@ func (roomSvc *roomServiceImpl) AddMembersToGroup(ctx context.Context, userID, r
 
 	// BELUM BUAT CEK USER APAKAH SUDAH ADA DI GROUP ATAU BELUM
 
-	if err := roomSvc.memberRepo.AddMembers(ctx, roomID, req.UserIDs); err != nil {
+	members := make([]model.RoomMemberModel, 0, len(req.UserIDs))
+	for _, id := range req.UserIDs {
+		members = append(members, model.RoomMemberModel{
+			Role:   pkg.GroupRoleMember,
+			RoomID: roomID,
+			UserID: id,
+		})
+	}
+
+	if err := roomSvc.memberRepo.AddMembers(ctx, roomID, members); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (roomSvc *roomServiceImpl) GetOrCreatePrivateRoom(ctx context.Context, userID int64, req *request.GetOrCreatePrivateRoom) (int64, error) {
-	roomID, err := roomSvc.roomRepo.FindPrivateRoomByUsers(ctx, userID, req.TargetUserID)
-	if err == nil {
-		return roomID, nil
+func (roomSvc *roomServiceImpl) RemoveMembersFromGroup(ctx context.Context, userID, roomID int64, req *request.RemoveMembersFromGroup) error {
+	if slices.Contains(req.UserIDs, userID) {
+		return pkg.NewErr(pkg.ErrCodeBadRequest, "you cannot remove yourself, use leave group instead")
 	}
 
-	if !errors.Is(err, model.ErrRoomNotFound) {
-		return 0, err
+	if err := roomSvc.validateOnlyAdmin(ctx, userID, roomID); err != nil {
+		return err
 	}
 
-	_, err = roomSvc.userRepo.FindByID(ctx, req.TargetUserID)
+	membersMap, err := roomSvc.getMembersWithMap(ctx, roomID, req.UserIDs)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	members := []model.RoomMemberModel{
-		{UserID: userID},
-		{UserID: req.TargetUserID},
-	}
-
-	room := model.RoomModel{
-		Type:    pkg.RoomTypePrivate,
-		Members: members,
-	}
-
-	fmt.Println("MASUK")
-	if err := roomSvc.roomRepo.Create(ctx, &room); err != nil {
-		if !errors.Is(err, model.ErrDuplicatePrivateRoom) {
-			return 0, err
+	var missing []int64
+	for _, id := range req.UserIDs {
+		if _, ok := membersMap[id]; !ok {
+			missing = append(missing, id)
 		}
-
-		roomID, findErr := roomSvc.roomRepo.FindPrivateRoomByUsers(ctx, userID, req.TargetUserID)
-		if findErr != nil {
-			return 0, findErr
-		}
-
-		return roomID, nil
 	}
 
-	return room.ID, nil
+	if len(missing) > 0 {
+		return pkg.NewErr(pkg.ErrCodeNotFound, fmt.Sprintf("users are not members of this room: %v", missing))
+	}
+
+	if err := roomSvc.memberRepo.DeleteMembersGroup(ctx, roomID, req.UserIDs); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (roomSvc *roomServiceImpl) DeleteGroupRoom(ctx context.Context, userID, roomID int64) error {
+	if err := roomSvc.validateOnlyAdmin(ctx, userID, roomID); err != nil {
+		return err
+	}
+
+	if err := roomSvc.roomRepo.DeleteByID(ctx, roomID); err != nil {
+		return err
+	}
+	return nil
 }

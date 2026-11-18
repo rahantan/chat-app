@@ -9,7 +9,7 @@ import (
 )
 
 type MessageRepository interface {
-	FindAllByRoomID(ctx context.Context, roomID int64) ([]model.MessageModel, error)
+	FindByRoomIDWithDetail(ctx context.Context, roomID int64) ([]model.MessageModel, error)
 	FindByID(ctx context.Context, msgID int64) (*model.MessageModel, error)
 	Delete(ctx context.Context, userID, roomID, msgID int64) error
 	Add(ctx context.Context, msg *model.MessageModel) error
@@ -24,6 +24,15 @@ func NewMessageRepository(repo BaseRepsoitory) MessageRepository {
 		baseRepo: repo,
 	}
 }
+func (msgRepo *messageRepositoryImpl) FindByRoomIDWithDetail(ctx context.Context, roomID int64) ([]model.MessageModel, error) {
+	messages := make([]model.MessageModel, 0)
+
+	if err := msgRepo.baseRepo.Conn(ctx).Joins("Sender").Preload("Attachments").Find(&messages, "room_id = ?", roomID).Error; err != nil {
+		return nil, err
+	}
+
+	return messages, nil
+}
 
 func (msgRepo *messageRepositoryImpl) FindByID(ctx context.Context, msgID int64) (*model.MessageModel, error) {
 	var message model.MessageModel
@@ -36,15 +45,6 @@ func (msgRepo *messageRepositoryImpl) FindByID(ctx context.Context, msgID int64)
 	}
 
 	return &message, nil
-}
-func (msgRepo *messageRepositoryImpl) FindAllByRoomID(ctx context.Context, roomID int64) ([]model.MessageModel, error) {
-	messages := make([]model.MessageModel, 0)
-
-	if err := msgRepo.baseRepo.Conn(ctx).Joins("Sender").Preload("Attachments").Find(&messages, "room_id = ?", roomID).Error; err != nil {
-		return nil, err
-	}
-
-	return messages, nil
 }
 
 func (msgRepo *messageRepositoryImpl) Delete(ctx context.Context, userID, roomID, msgID int64) error {

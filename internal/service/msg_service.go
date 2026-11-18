@@ -33,7 +33,7 @@ func NewMessageService(room mysql.RoomRepository, member mysql.RoomMemberReposit
 	}
 }
 func (msgSvc *messageServiceImpl) roomValidate(ctx context.Context, userID, roomID int64) error {
-	exist, err := msgSvc.roomRepo.IsExist(ctx, roomID)
+	exist, err := msgSvc.roomRepo.IsExists(ctx, roomID)
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (msgSvc *messageServiceImpl) ListMessage(ctx context.Context, userID, roomI
 		return nil, err
 	}
 
-	msgResults, err := msgSvc.msgRepo.FindAllByRoomID(ctx, roomID)
+	msgResults, err := msgSvc.msgRepo.FindByRoomIDWithDetail(ctx, roomID)
 	if err != nil {
 		return nil, err
 	}

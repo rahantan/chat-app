@@ -43,6 +43,7 @@ func (userRepo *userRepositoryImpl) FindByID(ctx context.Context, userID int64) 
 		}
 		return nil, err
 	}
+
 	return &user, nil
 }
 

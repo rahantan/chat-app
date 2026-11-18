@@ -11,17 +11,15 @@ import (
 )
 
 type RoomRepository interface {
-	Create(ctx context.Context, room *model.RoomModel) error                   // done
-	DeleteByID(ctx context.Context, roomID int64) error                        // done
-	FindGroupByID(ctx context.Context, roomID int64) (*model.RoomModel, error) // done
-	IsExist(ctx context.Context, roomID int64) (bool, error)                   // done
-
-	FindAll(ctx context.Context, userID int64) ([]model.RoomModel, error)
-	// GetByID(ctx context.Context) (*model.RoomModel, error)
-
-	FindDetailByID(ctx context.Context, roomID int64) (*model.RoomModel, error)
+	IsExists(ctx context.Context, roomID int64) (bool, error)                            // done
+	FindByUserIDWithDetail(ctx context.Context, userID int64) ([]model.RoomModel, error) //ad
+	FindByIDWithMembers(ctx context.Context, roomID int64) (*model.RoomModel, error)
 	FindByID(ctx context.Context, roomID int64) (*model.RoomModel, error)
 	FindPrivateRoomByUsers(ctx context.Context, userID, targetUserID int64) (int64, error)
+
+	Create(ctx context.Context, room *model.RoomModel) error // done
+	DeleteByID(ctx context.Context, roomID int64) error      // done
+
 	UpdateTime(ctx context.Context, roomID int64) error
 }
 
@@ -51,26 +49,12 @@ func (rRepo *roomRepoImpl) FindPrivateRoomByUsers(ctx context.Context, userID, t
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return 0, model.ErrRoomNotFound
 		}
-		// if errors.Is(err, gorm.ErrDuplicatedKey) {
-		// 	return 0, model.ErrDuplicatePrivateRoom
-		// }
 		return 0, err
 	}
 	return roomID, nil
 }
 
-func (rRepo *roomRepoImpl) FindGroupByID(ctx context.Context, roomID int64) (*model.RoomModel, error) {
-	var room *model.RoomModel
-	if err := rRepo.baseRepo.Conn(ctx).Preload("Members.User").Take(&room, "id = ? AND type = ? ", roomID, pkg.RoomTypeGroup).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, model.ErrRoomNotFound
-		}
-		return nil, err
-	}
-	return room, nil
-}
-
-func (rRepo *roomRepoImpl) IsExist(ctx context.Context, roomID int64) (bool, error) {
+func (rRepo *roomRepoImpl) IsExists(ctx context.Context, roomID int64) (bool, error) {
 	var count int64
 	if err := rRepo.baseRepo.Conn(ctx).Model(&model.RoomModel{}).Where("id = ?", roomID).Count(&count).Error; err != nil {
 		return false, err
@@ -83,9 +67,11 @@ func (rRepo *roomRepoImpl) DeleteByID(ctx context.Context, roomID int64) error {
 	if result.Error != nil {
 		return result.Error
 	}
+
 	if result.RowsAffected == 0 {
 		return model.ErrRoomNotFound
 	}
+
 	return nil
 }
 
@@ -99,7 +85,7 @@ func (rRepo *roomRepoImpl) Create(ctx context.Context, room *model.RoomModel) er
 	return nil
 }
 
-func (rRepo *roomRepoImpl) FindAll(ctx context.Context, userID int64) ([]model.RoomModel, error) {
+func (rRepo *roomRepoImpl) FindByUserIDWithDetail(ctx context.Context, userID int64) ([]model.RoomModel, error) {
 	db := rRepo.baseRepo.Conn(ctx)
 
 	roomIDs := db.Model(&model.RoomMemberModel{}).Select("room_id").Where("user_id = ?", userID)
@@ -133,7 +119,7 @@ func (rRepo *roomRepoImpl) FindAll(ctx context.Context, userID int64) ([]model.R
 		GROUP BY room_id
 	)`, ids).
 		Preload("Sender", func(tx *gorm.DB) *gorm.DB {
-			return tx.Select("id", "username") // id wajib ikut, dipakai GORM untuk mencocokkan relasi
+			return tx.Select("id", "username")
 		}).
 		Find(&lastMsgs).Error; err != nil {
 		return nil, err
@@ -149,7 +135,7 @@ func (rRepo *roomRepoImpl) FindAll(ctx context.Context, userID int64) ([]model.R
 	return rooms, nil
 }
 
-func (rRepo *roomRepoImpl) FindDetailByID(ctx context.Context, roomID int64) (*model.RoomModel, error) {
+func (rRepo *roomRepoImpl) FindByIDWithMembers(ctx context.Context, roomID int64) (*model.RoomModel, error) {
 	var room model.RoomModel
 	if err := rRepo.baseRepo.Conn(ctx).Preload("Members.User").Take(&room, "id = ?", roomID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -159,27 +145,19 @@ func (rRepo *roomRepoImpl) FindDetailByID(ctx context.Context, roomID int64) (*m
 	}
 	return &room, nil
 }
+
 func (rRepo *roomRepoImpl) FindByID(ctx context.Context, roomID int64) (*model.RoomModel, error) {
 	var room *model.RoomModel
-	query := rRepo.baseRepo.Conn(ctx)
-	if err := query.Where("id = ?", roomID).Take(&room).Error; err != nil {
+	if err := rRepo.baseRepo.Conn(ctx).Where("id = ?", roomID).Take(&room).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, model.ErrRoomNotFound
 		}
 		return nil, err
 	}
 
-	// if room.Type == pkg.RoomTypePrivate {
-	// 	if err := query.Preload("Members.User").First(&room, room.ID).Error; err != nil {
-	// 		if errors.Is(err, gorm.ErrRecordNotFound) {
-	// 			return nil, model.ErrRoomNotFound
-	// 		}
-	// 		return nil, err
-	// 	}
-	// }
-
 	return room, nil
 }
+
 func (rRepo *roomRepoImpl) UpdateTime(ctx context.Context, roomID int64) error {
 	result := rRepo.baseRepo.Conn(ctx).Model(&model.RoomModel{}).Where("id = ?", roomID).UpdateColumn("updated_at", time.Now())
 	if result.Error != nil {

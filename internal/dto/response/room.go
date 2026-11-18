@@ -13,6 +13,7 @@ type RoomLastMsg struct {
 
 type Member struct {
 	UserID    int64  `json:"user_id"`
+	Role      string `json:"role"`
 	UserName  string `json:"username"`
 	AvatarUrl string `json:"avatar_url"`
 }
